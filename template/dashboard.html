@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Code2Resume</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background-color: #f9f9f9; display: flex; flex-direction: column; height: 100vh; }
+        header { background: #333; color: white; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; }
+        header h1 { margin: 0; font-size: 20px; }
+        nav a { color: white; text-decoration: none; margin-left: 20px; font-size: 14px; }
+        nav a:hover { text-decoration: underline; }
+        
+        .main-container { display: flex; flex: 1; overflow: hidden; }
+        
+        .sidebar { width: 300px; background: white; border-right: 1px solid #ddd; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; }
+        .content { flex: 1; padding: 30px; overflow-y: auto; display: flex; flex-direction: column; }
+        
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        h2 { margin-top: 0; color: #333; }
+        
+        button.primary { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; width: 100%; font-size: 16px; }
+        button.primary:hover { background: #0056b3; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+
+        .chat-box { flex: 1; display: flex; flex-direction: column; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); overflow: hidden; }
+        .chat-history { flex: 1; padding: 20px; overflow-y: auto; background: #fff; }
+        .chat-input-area { padding: 20px; background: #f0f0f0; border-top: 1px solid #ddd; display: flex; gap: 10px; }
+        .chat-input-area input { flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 4px; }
+        
+        .message { margin-bottom: 15px; max-width: 80%; }
+        .message.user { margin-left: auto; background: #007bff; color: white; padding: 10px 15px; border-radius: 15px 15px 0 15px; }
+        .message.agent { margin-right: auto; background: #f1f1f1; color: #333; padding: 10px 15px; border-radius: 15px 15px 15px 0; }
+        .message p { margin: 0; }
+        
+        #status { margin-top: 10px; font-size: 14px; color: #666; text-align: center; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Code2Resume</h1>
+        <nav>
+            <span id="usernameDisplay"></span>
+            <a href="/settings">Settings</a>
+            <a href="#" onclick="logout()">Logout</a>
+        </nav>
+    </header>
+
+    <div class="main-container">
+        <div class="sidebar">
+            <div class="card">
+                <h2>Data Sync</h2>
+                <p style="font-size: 14px; color: #666; margin-bottom: 15px;">
+                    Fetch your latest repositories from GitHub and update the AI agent's knowledge.
+                </p>
+                <button class="primary" onclick="updateData()" id="updateBtn">Update from GitHub</button>
+                <div id="status"></div>
+            </div>
+            
+            <div class="card">
+                <h3>Tips</h3>
+                <ul style="font-size: 13px; color: #555; padding-left: 20px;">
+                    <li>Ask for a resume summary.</li>
+                    <li>List your top technical skills.</li>
+                    <li>Generate a project description for your portfolio.</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="content">
+            <div class="chat-box">
+                <div class="chat-history" id="chatHistory">
+                    <div class="message agent">
+                        <p>Hello! I've analyzed your GitHub projects. How can I help you with your resume or portfolio today?</p>
+                    </div>
+                </div>
+                <div class="chat-input-area">
+                    <input type="text" id="queryInput" placeholder="Ask something about your projects..." onkeypress="handleEnter(event)">
+                    <button class="primary" style="width: auto;" onclick="askAgent()">Ask</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const token = localStorage.getItem('token');
+        if (!token) window.location.href = '/';
+
+        async function loadUser() {
+            try {
+                const response = await fetch('/auth/me', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!response.ok) throw new Error('Unauthorized');
+                const user = await response.json();
+                document.getElementById('usernameDisplay').textContent = user.username;
+            } catch (e) {
+                logout();
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('token');
+            window.location.href = '/';
+        }
+
+        async function updateData() {
+            const btn = document.getElementById('updateBtn');
+            const status = document.getElementById('status');
+            
+            btn.disabled = true;
+            status.textContent = "Fetching and analyzing repos... This may take a few minutes.";
+            
+            try {
+                const response = await fetch('/analyze', {
+                    method: 'POST',
+                    headers: { 
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({}) // Empty body uses user's stored URL
+                });
+                
+                if (!response.ok) throw new Error('Analysis failed');
+                
+                const data = await response.json();
+                status.textContent = `Success! Analyzed ${data.repos.length} repositories. Agent updated.`;
+                status.style.color = "green";
+            } catch (e) {
+                status.textContent = "Error: " + e.message;
+                status.style.color = "red";
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        async function askAgent() {
+            const input = document.getElementById('queryInput');
+            const history = document.getElementById('chatHistory');
+            const query = input.value.trim();
+            
+            if (!query) return;
+            
+            // Add user message
+            history.innerHTML += `<div class="message user"><p>${query}</p></div>`;
+            input.value = '';
+            history.scrollTop = history.scrollHeight;
+
+            // Add loading placeholder
+            const loadingId = 'loading-' + Date.now();
+            history.innerHTML += `<div class="message agent" id="${loadingId}"><p>Thinking...</p></div>`;
+            history.scrollTop = history.scrollHeight;
+
+            try {
+                const response = await fetch('/ask', {
+                    method: 'POST',
+                    headers: { 
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ query })
+                });
+                
+                const data = await response.json();
+                const agentMsg = document.getElementById(loadingId);
+                agentMsg.innerHTML = marked.parse(data.response);
+            } catch (e) {
+                const agentMsg = document.getElementById(loadingId);
+                agentMsg.innerHTML = `<p style="color:red">Error: ${e.message}</p>`;
+            }
+            history.scrollTop = history.scrollHeight;
+        }
+
+        function handleEnter(e) {
+            if (e.key === 'Enter') askAgent();
+        }
+
+        loadUser();
+    </script>
+</body>
+</html>

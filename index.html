@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub Analyzer</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 900px; margin: 0 auto; padding: 40px; background-color: #f9f9f9; }
+        h1 { color: #333; text-align: center; }
+        .container { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .input-group { display: flex; gap: 10px; margin-bottom: 20px; }
+        input[type="text"] { flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 16px; }
+        button { padding: 12px 24px; background: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: 600; transition: background 0.2s; }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        #result { margin-top: 30px; display: none; }
+        .result-card { background: #fff; border: 1px solid #e1e4e8; border-radius: 8px; padding: 20px; margin-bottom: 20px; border-left: 5px solid #007bff; }
+        .result-card h2 { margin-top: 0; color: #0366d6; font-size: 1.4em; }
+        .section { margin-bottom: 15px; }
+        .section h3 { color: #586069; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 5px; }
+        .section p { line-height: 1.5; color: #24292e; margin: 0; }
+        .tech-tag { display: inline-block; background: #f1f8ff; color: #0366d6; padding: 3px 8px; border-radius: 4px; font-size: 13px; margin-right: 5px; margin-bottom: 5px; border: 1px solid #c8e1ff; }
+        .loading { text-align: center; color: #666; display: none; margin-top: 20px; }
+        .profile-header { text-align: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 1px solid #eee; }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body>
+    <h1>GitHub Analyzer</h1>
+    <div class="container">
+        <div class="input-group">
+            <input type="text" id="repoUrl" value="https://github.com/Mithrajith" readonly style="background-color: #f0f0f0; color: #666;">
+            <button onclick="analyze()" id="analyzeBtn">Analyze</button>
+        </div>
+        
+        <div id="loading" class="loading">
+            Analyzing... This may take a while for profiles with multiple repos.
+        </div>
+
+        <div id="result"></div>
+    </div>
+
+    <div class="container" style="margin-top: 20px;">
+        <h2>Ask Agent</h2>
+        <div class="input-group">
+            <input type="text" id="agentQuery" placeholder="Ask about the analyzed projects (e.g., 'Create a resume summary')">
+            <button onclick="askAgent()" id="askBtn">Ask</button>
+        </div>
+        <div id="agentResult" class="result-card" style="display:none; border-left-color: #28a745;"></div>
+    </div>
+
+    <script>
+        async function askAgent() {
+            const queryInput = document.getElementById('agentQuery');
+            const resultDiv = document.getElementById('agentResult');
+            const btn = document.getElementById('askBtn');
+            
+            const query = queryInput.value.trim();
+            if (!query) return;
+
+            resultDiv.style.display = 'none';
+            resultDiv.innerHTML = 'Thinking...';
+            resultDiv.style.display = 'block';
+            btn.disabled = true;
+
+            try {
+                const response = await fetch('/ask', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query: query })
+                });
+                
+                const data = await response.json();
+                if (data.response) {
+                    resultDiv.innerHTML = marked.parse(data.response);
+                } else {
+                    resultDiv.innerHTML = 'No response received.';
+                }
+            } catch (e) {
+                resultDiv.innerHTML = 'Error: ' + e.message;
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        async function analyze() {
+            const urlInput = document.getElementById('repoUrl');
+            const resultDiv = document.getElementById('result');
+            const loadingDiv = document.getElementById('loading');
+            const btn = document.getElementById('analyzeBtn');
+            
+            const url = urlInput.value.trim();
+            
+            if (!url) return;
+
+            // Reset UI
+            resultDiv.style.display = 'none';
+            resultDiv.innerHTML = '';
+            loadingDiv.style.display = 'block';
+            btn.disabled = true;
+
+            try {
+                const response = await fetch('/analyze', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        url: url,
+                        token: null
+                    })
+                });
+
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.detail || response.statusText);
+                }
+
+                const data = await response.json();
+                
+                if (data.type === 'profile') {
+                    renderProfile(data);
+                } else {
+                    renderSingleRepo(data);
+                }
+                
+                resultDiv.style.display = 'block';
+
+            } catch (error) {
+                resultDiv.innerHTML = `<p style="color: red; text-align: center;">Error: ${error.message}</p>`;
+                resultDiv.style.display = 'block';
+            } finally {
+                loadingDiv.style.display = 'none';
+                btn.disabled = false;
+            }
+        }
+
+        function renderSingleRepo(data) {
+            const resultDiv = document.getElementById('result');
+            const content = data.data || {};
+            const raw = data.raw_response;
+
+            if (raw) {
+                // Fallback if JSON parsing failed on backend
+                resultDiv.innerHTML = `<div class="result-card"><h2>${data.repo_name}</h2><pre>${raw}</pre></div>`;
+                return;
+            }
+
+            resultDiv.innerHTML = createRepoCard(data.repo_name, content.what_it_does, content.tech_stack, content.key_features);
+        }
+
+        function renderProfile(data) {
+            const resultDiv = document.getElementById('result');
+            
+            let html = `<div class="profile-header"><h2>Analysis for User: ${data.owner}</h2></div>`;
+            
+            if (data.raw_analysis) {
+                 html += `<pre>${data.raw_analysis}</pre>`;
+            } else if (data.repos && data.repos.length > 0) {
+                data.repos.forEach(repo => {
+                    html += createRepoCard(repo.name, repo.what_it_does, repo.tech_stack, repo.key_features);
+                });
+            } else {
+                html += `<p style="text-align:center">No public repositories found or analyzed.</p>`;
+            }
+            
+            resultDiv.innerHTML = html;
+        }
+
+        function createRepoCard(name, desc, stack, features) {
+            let techStackHtml = '';
+            if (Array.isArray(stack)) {
+                techStackHtml = stack.map(t => `<span class="tech-tag">${t}</span>`).join('');
+            } else if (stack) {
+                techStackHtml = `<p>${stack}</p>`;
+            }
+
+            let featuresHtml = '';
+            if (features && Array.isArray(features) && features.length > 0) {
+                featuresHtml = '<div class="section"><h3>Key Features</h3><ul style="margin: 0; padding-left: 20px; color: #24292e;">' + 
+                    features.map(f => `<li style="margin-bottom: 4px;">${f}</li>`).join('') + 
+                    '</ul></div>';
+            }
+
+            return `
+                <div class="result-card">
+                    <h2>${name}</h2>
+                    <div class="section">
+                        <h3>What it does</h3>
+                        <p>${desc || 'No description available.'}</p>
+                    </div>
+                    ${featuresHtml}
+                    <div class="section">
+                        <h3>Tech Stack</h3>
+                        <div>${techStackHtml || 'Not specified'}</div>
+                    </div>
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>

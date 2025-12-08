@@ -1,0 +1,29 @@
+[project]
+name = "code2resume"
+version = "0.1.0"
+description = "Code2Resume: GitHub to Resume/Portfolio Generator"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi==0.104.1",
+    "uvicorn[standard]==0.24.0",
+    "python-multipart==0.0.6",
+    "requests==2.31.0",
+    "httpx==0.25.2",
+    "python-dotenv==1.0.0",
+    "pydantic==2.5.0",
+    "GitPython==3.1.40",
+    "ollama==0.1.7",
+    "aiofiles>=23.2.1",
+    "jinja2==3.1.2",
+    "chromadb==0.4.22",
+    "sentence-transformers==2.3.1",
+    "python-jose[cryptography]==3.3.0",
+    "passlib[bcrypt]==1.7.4",
+    "sqlalchemy==2.0.23",
+    "numpy<2.0.0",
+    "bcrypt==4.0.1",
+]
+
+[dependency-groups]
+dev = []
