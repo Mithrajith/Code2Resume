@@ -73,7 +73,6 @@ cover/
 users.db
 
 # Project Specific
-Git_details/
 chroma_db/
 dataset/
 *.log

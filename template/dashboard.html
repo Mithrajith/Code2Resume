@@ -6,35 +6,237 @@
     <title>Dashboard - Code2Resume</title>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background-color: #f9f9f9; display: flex; flex-direction: column; height: 100vh; }
-        header { background: #333; color: white; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; }
-        header h1 { margin: 0; font-size: 20px; }
-        nav a { color: white; text-decoration: none; margin-left: 20px; font-size: 14px; }
-        nav a:hover { text-decoration: underline; }
+        :root {
+            --primary-color: #2563eb; /* Solid Blue */
+            --primary-hover: #1d4ed8;
+            --bg-color: #f3f4f6;
+            --sidebar-bg: #ffffff;
+            --text-color: #1f2937;
+            --border-color: #e5e7eb;
+            --chat-bg: #ffffff;
+            --user-msg-bg: #2563eb;
+            --user-msg-text: #ffffff;
+            --agent-msg-bg: #f3f4f6;
+            --agent-msg-text: #1f2937;
+        }
+
+        body { 
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; 
+            margin: 0; 
+            background-color: var(--bg-color); 
+            display: flex; 
+            flex-direction: column; 
+            height: 100vh; 
+            color: var(--text-color);
+        }
+
+        /* Header */
+        header { 
+            background: #111827; 
+            color: white; 
+            padding: 0 24px; 
+            height: 60px;
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        }
+        header h1 { margin: 0; font-size: 18px; font-weight: 600; letter-spacing: -0.025em; }
+        nav a { color: #d1d5db; text-decoration: none; margin-left: 24px; font-size: 14px; transition: color 0.2s; }
+        nav a:hover { color: white; }
         
+        /* Layout */
         .main-container { display: flex; flex: 1; overflow: hidden; }
         
-        .sidebar { width: 300px; background: white; border-right: 1px solid #ddd; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; }
-        .content { flex: 1; padding: 30px; overflow-y: auto; display: flex; flex-direction: column; }
-        
-        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 20px; }
-        h2 { margin-top: 0; color: #333; }
-        
-        button.primary { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; width: 100%; font-size: 16px; }
-        button.primary:hover { background: #0056b3; }
-        button:disabled { background: #ccc; cursor: not-allowed; }
+        /* Sidebar */
+        .sidebar { 
+            width: 280px; 
+            background: var(--sidebar-bg); 
+            border-right: 1px solid var(--border-color); 
+            display: flex; 
+            flex-direction: column; 
+            overflow-y: auto;
+        }
 
-        .chat-box { flex: 1; display: flex; flex-direction: column; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); overflow: hidden; }
-        .chat-history { flex: 1; padding: 20px; overflow-y: auto; background: #fff; }
-        .chat-input-area { padding: 20px; background: #f0f0f0; border-top: 1px solid #ddd; display: flex; gap: 10px; }
-        .chat-input-area input { flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 4px; }
+        .sidebar-section {
+            padding: 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .sidebar-section:last-child { border-bottom: none; }
+
+        .sidebar h2 { 
+            margin-top: 0; 
+            margin-bottom: 12px;
+            font-size: 14px; 
+            text-transform: uppercase; 
+            letter-spacing: 0.05em; 
+            color: #6b7280; 
+            font-weight: 600;
+        }
+
+        .sidebar p { font-size: 13px; color: #4b5563; margin-bottom: 16px; line-height: 1.5; }
         
-        .message { margin-bottom: 15px; max-width: 80%; }
-        .message.user { margin-left: auto; background: #007bff; color: white; padding: 10px 15px; border-radius: 15px 15px 0 15px; }
-        .message.agent { margin-right: auto; background: #f1f1f1; color: #333; padding: 10px 15px; border-radius: 15px 15px 15px 0; }
+        /* Buttons */
+        button.primary { 
+            background: var(--primary-color); 
+            color: white; 
+            border: none; 
+            padding: 10px 16px; 
+            border-radius: 6px; 
+            cursor: pointer; 
+            width: 100%; 
+            font-size: 14px; 
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+        button.primary:hover { background: var(--primary-hover); }
+        button:disabled { background: #9ca3af; cursor: not-allowed; }
+
+        /* Chat Area */
+        .content { 
+            flex: 1; 
+            display: flex; 
+            flex-direction: column; 
+            background-color: white;
+            position: relative;
+        }
+        
+        .chat-box { 
+            flex: 1; 
+            display: flex; 
+            flex-direction: column; 
+            overflow: hidden; 
+            max-width: 900px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .chat-history { 
+            flex: 1; 
+            padding: 24px; 
+            overflow-y: auto; 
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        /* Messages */
+        .message { 
+            display: flex; 
+            gap: 16px; 
+            max-width: 100%;
+            line-height: 1.6;
+            font-size: 15px;
+        }
+        
+        .message.user { 
+            flex-direction: row-reverse; 
+        }
+
+        .avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+
+        .message.agent .avatar { background: #10b981; color: white; } /* Green for AI */
+        .message.user .avatar { background: #6366f1; color: white; } /* Indigo for User */
+
+        .message-content {
+            padding: 12px 16px;
+            border-radius: 8px;
+            max-width: 80%;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+
+        .message.agent .message-content { 
+            background: var(--agent-msg-bg); 
+            color: var(--agent-msg-text); 
+            border-top-left-radius: 0;
+        }
+        
+        .message.user .message-content { 
+            background: var(--user-msg-bg); 
+            color: var(--user-msg-text); 
+            border-top-right-radius: 0;
+        }
+
         .message p { margin: 0; }
+        .message pre { 
+            background: #1f2937; 
+            color: #f3f4f6; 
+            padding: 12px; 
+            border-radius: 6px; 
+            overflow-x: auto; 
+            font-size: 13px;
+        }
+
+        /* Input Area */
+        .chat-input-container {
+            padding: 24px;
+            background: white;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .chat-input-wrapper {
+            max-width: 900px;
+            margin: 0 auto;
+            position: relative;
+            display: flex;
+            gap: 12px;
+        }
+
+        .chat-input-wrapper input { 
+            flex: 1; 
+            padding: 14px 16px; 
+            border: 1px solid var(--border-color); 
+            border-radius: 8px; 
+            font-size: 15px;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
         
-        #status { margin-top: 10px; font-size: 14px; color: #666; text-align: center; }
+        .chat-input-wrapper input:focus { 
+            border-color: var(--primary-color); 
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .chat-input-wrapper button {
+            width: auto;
+            padding: 0 24px;
+            height: auto;
+        }
+
+        /* Status Indicators */
+        .status-text { margin-top: 8px; font-size: 12px; color: #6b7280; text-align: center; }
+        
+        /* History List in Sidebar */
+        .history-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .history-item {
+            padding: 8px 12px;
+            margin-bottom: 4px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            color: #374151;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            transition: background 0.2s;
+        }
+        .history-item:hover { background: #f3f4f6; }
+
     </style>
 </head>
 <body>
@@ -49,22 +251,28 @@
 
     <div class="main-container">
         <div class="sidebar">
-            <div class="card">
+            <div class="sidebar-section">
                 <h2>Data Sync</h2>
-                <p style="font-size: 14px; color: #666; margin-bottom: 15px;">
-                    Fetch your latest repositories from GitHub and update the AI agent's knowledge.
-                </p>
+                <p>Fetch your latest repositories from GitHub to update the AI.</p>
                 <button class="primary" onclick="updateData()" id="updateBtn">Update from GitHub</button>
-                <div id="status"></div>
+                <div id="status" class="status-text"></div>
+            </div>
+
+            <div class="sidebar-section">
+                <h2>Model Training</h2>
+                <p>Fine-tune Llama 3.1 on your RTX 2050.</p>
+                <button class="primary" onclick="startFineTuning()" id="trainBtn">Start GPU Fine-Tuning</button>
+                <div id="trainStatus" class="status-text"></div>
             </div>
             
-            <div class="card">
-                <h3>Tips</h3>
-                <ul style="font-size: 13px; color: #555; padding-left: 20px;">
-                    <li>Ask for a resume summary.</li>
-                    <li>List your top technical skills.</li>
-                    <li>Generate a project description for your portfolio.</li>
-                </ul>
+            <div class="sidebar-section" style="flex: 1; display: flex; flex-direction: column;">
+                <h2>Chat History</h2>
+                <div style="flex: 1; overflow-y: auto;">
+                    <ul class="history-list" id="historyList">
+                        <!-- History items will be added here -->
+                        <li class="history-item" style="color: #9ca3af; font-style: italic; cursor: default;">No previous chats</li>
+                    </ul>
+                </div>
             </div>
         </div>
 
@@ -72,12 +280,18 @@
             <div class="chat-box">
                 <div class="chat-history" id="chatHistory">
                     <div class="message agent">
-                        <p>Hello! I've analyzed your GitHub projects. How can I help you with your resume or portfolio today?</p>
+                        <div class="avatar">AI</div>
+                        <div class="message-content">
+                            <p>Hello! I've analyzed your GitHub projects. How can I help you with your resume or portfolio today?</p>
+                        </div>
                     </div>
                 </div>
-                <div class="chat-input-area">
+            </div>
+            
+            <div class="chat-input-container">
+                <div class="chat-input-wrapper">
                     <input type="text" id="queryInput" placeholder="Ask something about your projects..." onkeypress="handleEnter(event)">
-                    <button class="primary" style="width: auto;" onclick="askAgent()">Ask</button>
+                    <button class="primary" onclick="askAgent()">Send</button>
                 </div>
             </div>
         </div>
@@ -86,6 +300,29 @@
     <script>
         const token = localStorage.getItem('token');
         if (!token) window.location.href = '/';
+
+        // Load history from local storage
+        let sessionHistory = JSON.parse(localStorage.getItem('chatSessions')) || [];
+
+        function saveSession(query) {
+            const timestamp = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            sessionHistory.unshift({ query, timestamp });
+            if (sessionHistory.length > 20) sessionHistory.pop(); // Keep last 20
+            localStorage.setItem('chatSessions', JSON.stringify(sessionHistory));
+            renderHistoryList();
+        }
+
+        function renderHistoryList() {
+            const list = document.getElementById('historyList');
+            if (sessionHistory.length === 0) return;
+            
+            list.innerHTML = sessionHistory.map(item => `
+                <li class="history-item" title="${item.query}">
+                    <span style="color: #9ca3af; font-size: 11px; margin-right: 6px;">${item.timestamp}</span>
+                    ${item.query}
+                </li>
+            `).join('');
+        }
 
         async function loadUser() {
             try {
@@ -105,12 +342,41 @@
             window.location.href = '/';
         }
 
+        async function startFineTuning() {
+            const btn = document.getElementById('trainBtn');
+            const status = document.getElementById('trainStatus');
+            
+            btn.disabled = true;
+            status.textContent = "Starting fine-tuning process...";
+            
+            try {
+                const response = await fetch('/fine-tune', {
+                    method: 'POST',
+                    headers: { 
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (!response.ok) throw new Error(data.detail || 'Failed to start');
+                
+                status.textContent = "Training started in background! Check terminal.";
+                status.style.color = "#059669"; // Green
+            } catch (e) {
+                status.textContent = "Error: " + e.message;
+                status.style.color = "#dc2626"; // Red
+                btn.disabled = false;
+            }
+        }
+
         async function updateData() {
             const btn = document.getElementById('updateBtn');
             const status = document.getElementById('status');
             
             btn.disabled = true;
-            status.textContent = "Fetching and analyzing repos... This may take a few minutes.";
+            status.textContent = "Fetching repos...";
             
             try {
                 const response = await fetch('/analyze', {
@@ -119,17 +385,17 @@
                         'Authorization': `Bearer ${token}`,
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({}) // Empty body uses user's stored URL
+                    body: JSON.stringify({}) 
                 });
                 
                 if (!response.ok) throw new Error('Analysis failed');
                 
                 const data = await response.json();
-                status.textContent = `Success! Analyzed ${data.repos.length} repositories. Agent updated.`;
-                status.style.color = "green";
+                status.textContent = `Success! Analyzed ${data.repos.length} repos.`;
+                status.style.color = "#059669";
             } catch (e) {
                 status.textContent = "Error: " + e.message;
-                status.style.color = "red";
+                status.style.color = "#dc2626";
             } finally {
                 btn.disabled = false;
             }
@@ -142,14 +408,29 @@
             
             if (!query) return;
             
+            // Save to sidebar history
+            saveSession(query);
+
             // Add user message
-            history.innerHTML += `<div class="message user"><p>${query}</p></div>`;
+            history.innerHTML += `
+                <div class="message user">
+                    <div class="avatar">U</div>
+                    <div class="message-content">
+                        <p>${query}</p>
+                    </div>
+                </div>`;
             input.value = '';
             history.scrollTop = history.scrollHeight;
 
             // Add loading placeholder
             const loadingId = 'loading-' + Date.now();
-            history.innerHTML += `<div class="message agent" id="${loadingId}"><p>Thinking...</p></div>`;
+            history.innerHTML += `
+                <div class="message agent" id="${loadingId}">
+                    <div class="avatar">AI</div>
+                    <div class="message-content">
+                        <p>Thinking...</p>
+                    </div>
+                </div>`;
             history.scrollTop = history.scrollHeight;
 
             try {
@@ -164,10 +445,11 @@
                 
                 const data = await response.json();
                 const agentMsg = document.getElementById(loadingId);
-                agentMsg.innerHTML = marked.parse(data.response);
+                // Replace the content div only
+                agentMsg.querySelector('.message-content').innerHTML = marked.parse(data.response);
             } catch (e) {
                 const agentMsg = document.getElementById(loadingId);
-                agentMsg.innerHTML = `<p style="color:red">Error: ${e.message}</p>`;
+                agentMsg.querySelector('.message-content').innerHTML = `<p style="color:#dc2626">Error: ${e.message}</p>`;
             }
             history.scrollTop = history.scrollHeight;
         }
@@ -177,6 +459,7 @@
         }
 
         loadUser();
+        renderHistoryList();
     </script>
 </body>
 </html>

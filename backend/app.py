@@ -2,7 +2,7 @@ import os
 import httpx
 import ollama
 import asyncio
-from fastapi import FastAPI, HTTPException, Depends, status
+from fastapi import FastAPI, HTTPException, Depends, status, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -257,19 +257,52 @@ async def analyze_single_repo(owner: str, repo: str, token: str = None):
 def save_to_dataset(repos_data: List[Dict[str, Any]], username: str):
     """
     Saves extracted repository information into a JSONL file in Git_details/{username}/
+    Also generates a fine-tuning dataset in 'alpaca' format for the 'energetic friend' persona.
     """
     base_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "Git_details", username)
     if not os.path.exists(base_dir):
         os.makedirs(base_dir)
         
+    # 1. Save raw data for RAG
     dataset_path = os.path.join(base_dir, "data.jsonl")
-    
     with open(dataset_path, "a", encoding="utf-8") as f:
         for repo in repos_data:
-            # Save raw data for RAG/Agent usage
             f.write(json.dumps(repo) + "\n")
+            
+    # 2. Save Fine-Tuning Data (Alpaca Format)
+    ft_path = os.path.join(base_dir, "fine_tune_data.jsonl")
+    with open(ft_path, "a", encoding="utf-8") as f:
+        for repo in repos_data:
+            name = repo.get("name", "Project")
+            desc = repo.get("what_it_does", "A cool project.")
+            stack = ", ".join(repo.get("tech_stack", []))
+            features = ", ".join(repo.get("key_features", []))
+            
+            # Instruction 1: Describe the project
+            entry1 = {
+                "instruction": f"What is the project {name} about?",
+                "input": "",
+                "output": f"Yo! So {name} is this awesome project that {desc} It's built using {stack}. Check it out!"
+            }
+            f.write(json.dumps(entry1) + "\n")
+            
+            # Instruction 2: Resume Bullet Point
+            entry2 = {
+                "instruction": f"Write a resume bullet point for {name}.",
+                "input": "",
+                "output": f"🚀 Engineered {name}, a high-impact solution that {desc}, leveraging {stack} to deliver {features}."
+            }
+            f.write(json.dumps(entry2) + "\n")
+            
+            # Instruction 3: Tech Stack
+            entry3 = {
+                "instruction": f"What tech stack does {name} use?",
+                "input": "",
+                "output": f"For {name}, we went full beast mode with {stack}! It's a solid setup for this kind of work."
+            }
+            f.write(json.dumps(entry3) + "\n")
     
-    print(f"Saved {len(repos_data)} repos to {dataset_path}")
+    print(f"Saved {len(repos_data)} repos to {dataset_path} and fine-tuning data to {ft_path}")
 
 async def analyze_user_profile(owner: str, token: str, username: str):
     headers = {}
@@ -284,12 +317,22 @@ async def analyze_user_profile(owner: str, token: str, username: str):
             return {"type": "profile", "owner": owner, "repos": []}
         repos = repos_resp.json()
 
-    # Fetch details for all repos concurrently
-    tasks = [fetch_github_data(owner, r['name'], token) for r in repos]
+    # Fetch details for all repos with concurrency limit
+    print(f"Found {len(repos)} repos. Fetching details...")
+    sem = asyncio.Semaphore(5) # Limit to 5 concurrent requests to avoid rate limits
+
+    async def fetch_with_sem(repo_name):
+        async with sem:
+            # Add a small delay to be nice to the API
+            await asyncio.sleep(0.5)
+            return await fetch_github_data(owner, repo_name, token)
+
+    tasks = [fetch_with_sem(r['name']) for r in repos]
     results = await asyncio.gather(*tasks)
     
     # Filter out failed fetches
     valid_results = [r for r in results if r[0] is not None]
+    print(f"Successfully fetched details for {len(valid_results)}/{len(repos)} repos.")
     
     if not valid_results:
         return {"type": "profile", "owner": owner, "repos": []}
@@ -329,11 +372,25 @@ async def analyze_user_profile(owner: str, token: str, username: str):
         llm_response = await run_llm(prompt, f"{owner}'s Profile Batch {i}")
         
         try:
-            batch_parsed = json.loads(llm_response['raw_response'])
+            raw = llm_response['raw_response']
+            # Try to find a JSON list in the response using regex
+            import re
+            match = re.search(r'\[.*\]', raw, re.DOTALL)
+            if match:
+                json_str = match.group(0)
+                batch_parsed = json.loads(json_str)
+            else:
+                # Fallback to direct parsing
+                batch_parsed = json.loads(raw)
+                
             if isinstance(batch_parsed, list):
                 final_repos.extend(batch_parsed)
-        except:
-            print(f"Failed to parse batch {i}")
+            else:
+                print(f"Warning: Batch {i} parsed but not a list: {type(batch_parsed)}")
+                
+        except Exception as e:
+            print(f"Failed to parse batch {i}. Error: {e}")
+            print(f"Raw response snippet: {llm_response['raw_response'][:200]}...")
             pass
 
     # Save to dataset
@@ -428,6 +485,49 @@ async def analyze_repo(request: RepoRequest, current_user: User = Depends(get_cu
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/fine-tune")
+async def trigger_fine_tuning(current_user: User = Depends(get_current_user), background_tasks: BackgroundTasks = BackgroundTasks()):
+    """
+    Triggers the fine-tuning process for the current user.
+    Runs in the background.
+    """
+    try:
+        # Check if data exists
+        data_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "Git_details", current_user.username, "fine_tune_data.jsonl")
+        if not os.path.exists(data_path):
+            raise HTTPException(status_code=400, detail="No training data found. Please analyze your GitHub profile first.")
+
+        # Import here to avoid startup errors if unsloth is missing
+        try:
+            from backend.fine_tune_service import fine_tune_model
+        except ImportError:
+            try:
+                from fine_tune_service import fine_tune_model
+            except ImportError:
+                raise HTTPException(status_code=500, detail="Unsloth is not installed. Please install it to use GPU fine-tuning.")
+
+        # Run in background
+        background_tasks.add_task(fine_tune_model, current_user.username)
+        
+        return {"status": "started", "message": "Fine-tuning started in background. This may take a while."}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/gpu-status")
+def get_gpu_status():
+    try:
+        import torch
+        return {
+            "cuda_available": torch.cuda.is_available(),
+            "device_count": torch.cuda.device_count(),
+            "current_device": torch.cuda.current_device() if torch.cuda.is_available() else None,
+            "device_name": torch.cuda.get_device_name(0) if torch.cuda.is_available() else None
+        }
+    except ImportError:
+        return {"error": "PyTorch not installed"}
 
 from fastapi.staticfiles import StaticFiles
 
