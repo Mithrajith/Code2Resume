@@ -1,5 +1,6 @@
 import chromadb
 from chromadb.utils import embedding_functions
+from chromadb.config import Settings
 import os
 import json
 
@@ -9,7 +10,11 @@ class RAGService:
         if not os.path.exists(persist_directory):
             os.makedirs(persist_directory)
             
-        self.client = chromadb.PersistentClient(path=persist_directory)
+        # Disable telemetry to avoid posthog errors
+        self.client = chromadb.PersistentClient(
+            path=persist_directory,
+            settings=Settings(anonymized_telemetry=False)
+        )
         # Use a lightweight local model for embeddings
         self.embedding_fn = embedding_functions.SentenceTransformerEmbeddingFunction(model_name="all-MiniLM-L6-v2")
         

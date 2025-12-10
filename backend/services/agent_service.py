@@ -11,8 +11,9 @@ class AgentService:
         if "resume" in query.lower() or "cv" in query.lower():
             return self.generate_resume(query, username, model)
 
-        # 1. Retrieve context
-        results = self.rag.query(query, username=username)
+        # 1. Retrieve context - increase results for comprehensive listing
+        n_results = 50 if any(word in query.lower() for word in ['list', 'all', 'show']) else 5
+        results = self.rag.query(query, username=username, n_results=n_results)
         
         documents = results.get('documents', [[]])[0]
         
@@ -42,57 +43,188 @@ Instructions:
         try:
             response = ollama.chat(model=model, messages=[
                 {'role': 'user', 'content': prompt},
-            ])
+            ], options={'num_gpu': 99})
             return response['message']['content']
         except Exception as e:
             return f"Error generating response: {str(e)}"
 
-    def generate_resume(self, query: str, username: str, model: str):
-        # 1. Get all project context (fetch more results)
-        results = self.rag.query("List all projects and their details", username=username, n_results=10)
-        documents = results.get('documents', [[]])[0]
-        context = "\n---\n".join(documents) if documents else "No project data found."
+    def ask_stream(self, query: str, username: str, model: str = "llama3.1"):
+        """Streaming version that yields tokens as they're generated"""
+        # Check for resume generation intent
+        if "resume" in query.lower() or "cv" in query.lower():
+            yield self.generate_resume(query, username, model)
+            return
 
-        # 2. Read LaTeX template
-        template_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "LateX_template", "rezume.tex")
+        # 1. Retrieve context - increase results for comprehensive listing
+        n_results = 50 if any(word in query.lower() for word in ['list', 'all', 'show']) else 5
+        results = self.rag.query(query, username=username, n_results=n_results)
+        
+        documents = results.get('documents', [[]])[0]
+        
+        if not documents:
+            context = "No specific project information found."
+        else:
+            context = "\n---\n".join(documents)
+
+        # 2. Construct prompt
+        prompt = f"""
+You are an intelligent assistant helping a developer create a resume or portfolio content based on their GitHub projects.
+Use the following retrieved context about the user's projects to answer the question or fulfill the request.
+
+Context from analyzed repositories:
+{context}
+
+User Request: {query}
+
+Instructions:
+- Use the provided context to give accurate details about the projects.
+- If the context doesn't contain the answer, say so, but try to infer from the tech stacks if possible.
+- Format the output clearly (Markdown is supported).
+- When listing projects, include ALL relevant projects from the context without limitation.
+"""
+
+        # 3. Stream response
+        print(f"Agent streaming from {model} with context length {len(context)}")
+        try:
+            stream = ollama.chat(
+                model=model,
+                messages=[{'role': 'user', 'content': prompt}],
+                stream=True,
+                options={'num_gpu': 99}
+            )
+            for chunk in stream:
+                if 'message' in chunk and 'content' in chunk['message']:
+                    yield chunk['message']['content']
+        except Exception as e:
+            yield f"Error generating response: {str(e)}"
+
+    def generate_resume(self, query: str, username: str, model: str):
+        # 1. Detect target role/domain from query
+        query_lower = query.lower()
+        target_domain = None
+        target_role = "Software Engineer"  # Default
+        
+        domain_keywords = {
+            "Machine Learning": ["ml", "machine learning", "ai", "artificial intelligence", "deep learning", "neural network"],
+            "Data Science": ["data scien", "data analy", "analytics", "data engineer"],
+            "Full Stack": ["full stack", "fullstack", "full-stack"],
+            "Frontend": ["frontend", "front-end", "ui", "ux", "react", "vue", "angular"],
+            "Backend": ["backend", "back-end", "api", "server"],
+            "Mobile App": ["mobile", "android", "ios", "flutter", "react native"],
+            "DevOps": ["devops", "dev-ops", "infrastructure", "cloud", "kubernetes", "docker"]
+        }
+        
+        # Detect domain from query
+        for domain, keywords in domain_keywords.items():
+            if any(kw in query_lower for kw in keywords):
+                target_domain = domain
+                target_role = domain + " Engineer" if domain != "Full Stack" else "Full Stack Developer"
+                break
+        
+        print(f"Resume generation: target_domain={target_domain}, target_role={target_role}")
+        
+        # 2. Get project context - filter by domain if specified
+        if target_domain:
+            # Query with domain-specific keywords for better filtering
+            search_query = f"{target_domain} projects"
+            results = self.rag.query(search_query, username=username, n_results=50)
+        else:
+            # Get all projects
+            results = self.rag.query("List all projects and their details", username=username, n_results=50)
+        
+        documents = results.get('documents', [[]])[0]
+        metadatas = results.get('metadatas', [[]])[0]
+        
+        # Filter by domain if we have metadata with domain field
+        if target_domain and metadatas:
+            filtered_docs = []
+            for doc, meta in zip(documents, metadatas):
+                # Check if metadata has domain field matching target
+                if isinstance(meta, dict) and meta.get('type') == 'repo_summary':
+                    # Since we don't store domain in metadata, we'll rely on RAG semantic search
+                    filtered_docs.append(doc)
+            documents = filtered_docs if filtered_docs else documents
+        
+        context = "\n---\n".join(documents) if documents else "No project data found."
+        
+        # 3. Read LaTeX template - USE MAIN.TEX
+        template_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "LateX_template", "main.tex")
         try:
             with open(template_path, "r") as f:
                 template_content = f.read()
         except FileNotFoundError:
-            return "Error: Resume template not found."
+            return "Error: Resume template (main.tex) not found."
 
-        # 3. Construct Prompt
+        # 4. Construct Enhanced Prompt
+        domain_filter = f" Focus ONLY on {target_domain} projects." if target_domain else ""
+        
         prompt = f"""
 You are an expert Resume Writer and LaTeX developer.
-The user wants a resume for the following request: "{query}"
+The user wants a resume for: "{query}"
+Target Role: {target_role}
+{f"Target Domain: {target_domain}" if target_domain else ""}
 
 Here is the user's project history (from GitHub):
 {context}
 
-Here is the LaTeX template to use:
+Here is the LaTeX template to use (main.tex):
 ```tex
 {template_content}
 ```
 
-**Instructions:**
-1.  **Role Customization**: Identify the target job role from the user's request (e.g., "ML Engineer", "Full Stack Dev"). If not specified, infer it from the projects.
-2.  **Fill the Template**:
-    *   Update the `\\section{{Full Stack Developer}}` to the target role (e.g., `\\section{{Machine Learning Engineer}}`).
-    *   Update the **Summary** to reflect the target role and the user's skills.
-    *   Update **Technical Skills** based on the projects provided.
-    *   **Projects Section**: Replace the placeholder projects with the REAL projects from the context. Use `\\resumeTrioHeading` or `\\resumeQuadHeading` as appropriate.
-        *   Select the most relevant projects for the target role.
-        *   Write 3-4 bullet points for each project, highlighting achievements and tech stack.
-    *   **Experience/Education**: Leave placeholders (like "Anycompany", "University of Anystate") if you don't have that info, but fill in what you can or leave comments like `% TODO: User to fill`.
-    *   **Contact Info**: Leave placeholders like "Jane Doe" but you can put "{username}" as a placeholder name.
-3.  **Output Format**: Return **ONLY** the valid LaTeX code. Do not include markdown formatting like "Here is your resume...". Start directly with `\\documentclass`.
+**CRITICAL INSTRUCTIONS:**
+
+1. **Content Filling Only**: You are ONLY filling in the content. Keep the LaTeX structure, formatting, and commands EXACTLY as provided.
+
+2. **Personal Information**: 
+   - Replace "Mithrajith K S" with "{username}" (or keep if same user)
+   - Keep contact details section structure (phone, LinkedIn, GitHub)
+
+3. **Summary Section**: 
+   - Write a 2-3 sentence professional summary for the "{target_role}" role
+   - Highlight relevant skills from the projects
+   - Keep it professional and concise
+
+4. **Skills Section**:
+   - Extract ALL technologies from the projects
+   - Organize into: Languages, Frameworks, Databases, Machine Learning (if applicable), Tools, Other
+   - Format: **Category:** item1, item2, item3
+
+5. **Projects Section**{domain_filter}:
+   - Select 4-6 MOST relevant projects from the context
+   - For each project use this format:
+     \\textbf{{Project Name}}  
+     \\textit{{Main Technologies}}
+     \\begin{{itemize}}
+         \\item Bullet point 1 (achievement/feature)
+         \\item Bullet point 2 (technical detail)
+         \\item Bullet point 3 (impact/result)
+     \\end{{itemize}}
+   
+   - **IMPORTANT**: If a project lacks description or features in the context, YOU MUST GENERATE them intelligently based on:
+     * Project name (infer purpose)
+     * Tech stack (infer functionality)
+     * Common use cases for that technology
+     * Best practices for that domain
+   
+   - Write 3 strong bullet points per project using action verbs (Built, Developed, Engineered, Designed, Implemented)
+   - Focus on technical achievements and measurable impact
+
+6. **Output Format**: 
+   - Return ONLY the complete, valid LaTeX code
+   - Start with \\documentclass and end with \\end{{document}}
+   - NO markdown formatting (no ```tex or ```latex)
+   - NO explanatory text before or after
+   - Ready to compile as-is
+
+Generate the resume now:
 """
 
-        print(f"Generating resume with {model}...")
+        print(f"Generating {target_domain or 'general'} resume with {model}...")
         try:
             response = ollama.chat(model=model, messages=[
                 {'role': 'user', 'content': prompt},
-            ])
+            ], options={'num_gpu': 99})
             content = response['message']['content']
             
             # Clean up markdown code blocks if the model adds them
@@ -100,10 +232,13 @@ Here is the LaTeX template to use:
                 content = content[6:]
             if content.startswith("```latex"):
                 content = content[8:]
+            if content.startswith("```"):
+                content = content[3:]
             if content.endswith("```"):
                 content = content[:-3]
-                
-            return f"Here is your generated LaTeX resume. You can compile this using Overleaf or a local LaTeX editor.\n\n```latex\n{content.strip()}\n```"
+            
+            # Return just the LaTeX content (no markdown wrapper)
+            return content.strip()
         except Exception as e:
             return f"Error generating resume: {str(e)}"
 

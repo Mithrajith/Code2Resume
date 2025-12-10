@@ -154,6 +154,10 @@ class RepoRequest(BaseModel):
 class AskRequest(BaseModel):
     query: str
 
+class ResumeRequest(BaseModel):
+    query: str
+    domain: Optional[str] = None
+
 @app.post("/ask")
 async def ask_agent(request: AskRequest, current_user: User = Depends(get_current_user)):
     try:
@@ -162,14 +166,107 @@ async def ask_agent(request: AskRequest, current_user: User = Depends(get_curren
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/ask/stream")
+async def ask_agent_stream(request: AskRequest, current_user: User = Depends(get_current_user)):
+    from fastapi.responses import StreamingResponse
+    try:
+        def generate():
+            for token in agent_service.ask_stream(request.query, username=current_user.username):
+                yield f"data: {json.dumps({'token': token})}\n\n"
+        
+        return StreamingResponse(generate(), media_type="text/event-stream")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/generate-resume")
+async def generate_resume_file(request: ResumeRequest, current_user: User = Depends(get_current_user)):
+    """
+    Generates a LaTeX resume file and saves it to tmp/ directory
+    Returns the filename for download
+    """
+    try:
+        # Generate resume content using agent service
+        latex_content = agent_service.generate_resume(
+            request.query, 
+            username=current_user.username, 
+            model="llama3.1"
+        )
+        
+        if latex_content.startswith("Error"):
+            raise HTTPException(status_code=500, detail=latex_content)
+        
+        # Create tmp directory if it doesn't exist
+        tmp_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "tmp")
+        if not os.path.exists(tmp_dir):
+            os.makedirs(tmp_dir)
+        
+        # Generate unique filename
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"resume_{current_user.username}_{timestamp}.tex"
+        filepath = os.path.join(tmp_dir, filename)
+        
+        # Save LaTeX content to file
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(latex_content)
+        
+        print(f"Resume saved: {filepath}")
+        
+        return {
+            "success": True,
+            "filename": filename,
+            "message": "Resume generated successfully! Click below to download."
+        }
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/download/{filename}")
+async def download_file(filename: str, current_user: User = Depends(get_current_user)):
+    """
+    Downloads a generated resume file
+    """
+    try:
+        # Security check: ensure filename doesn't contain path traversal
+        if ".." in filename or "/" in filename:
+            raise HTTPException(status_code=400, detail="Invalid filename")
+        
+        tmp_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "tmp")
+        filepath = os.path.join(tmp_dir, filename)
+        
+        # Check if file exists
+        if not os.path.exists(filepath):
+            raise HTTPException(status_code=404, detail="File not found")
+        
+        # Verify file belongs to this user (filename contains username)
+        if current_user.username not in filename:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        return FileResponse(
+            path=filepath,
+            filename=filename,
+            media_type="application/x-tex",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 async def fetch_github_data(owner: str, repo: str, token: str):
     headers = {}
     if token:
         headers["Authorization"] = f"token {token}"
 
-    async with httpx.AsyncClient(follow_redirects=True, headers=headers) as client:
+    # Set reasonable timeouts: 10s connect, 30s read
+    timeout = httpx.Timeout(10.0, read=30.0)
+    async with httpx.AsyncClient(follow_redirects=True, headers=headers, timeout=timeout) as client:
         # Fetch repo details
-        repo_resp = await client.get(f"https://api.github.com/repos/{owner}/{repo}")
+        try:
+            repo_resp = await client.get(f"https://api.github.com/repos/{owner}/{repo}")
+        except (httpx.ConnectTimeout, httpx.ReadTimeout) as e:
+            print(f"Timeout fetching {owner}/{repo}: {e}")
+            return None, None, None
         
         if repo_resp.status_code == 403:
             print(f"Rate limit exceeded while fetching {owner}/{repo}")
@@ -201,9 +298,10 @@ async def run_llm(prompt: str, context_name: str):
     # Using llama3.1 (8B) which provides better analysis but will require mixed GPU/CPU execution on RTX 2050.
     model = "llama3.1:8b" 
     try:
+        # Force GPU usage with num_gpu option
         response = ollama.chat(model=model, messages=[
             {'role': 'user', 'content': prompt}
-        ])
+        ], options={'num_gpu': 99})
         content = response['message']['content']
         content = content.replace("```json", "").replace("```", "").strip()
         return {"raw_response": content, "repo_name": context_name}
@@ -215,7 +313,7 @@ async def run_llm(prompt: str, context_name: str):
                 # Retry once
                 response = ollama.chat(model=model, messages=[
                     {'role': 'user', 'content': prompt}
-                ])
+                ], options={'num_gpu': 99})
                 content = response['message']['content']
                 content = content.replace("```json", "").replace("```", "").strip()
                 return {"raw_response": content, "repo_name": context_name}
@@ -243,11 +341,21 @@ async def analyze_single_repo(owner: str, repo: str, token: str = None):
     1. A comprehensive description of what the project does.
     2. The detailed tech stack (languages, frameworks, libraries, tools).
     3. Key features or capabilities of the project.
+    4. The Project Domain - MUST be ONE of these EXACT values:
+       - "Machine Learning" (AI/ML projects, neural networks, computer vision, NLP)
+       - "Data Science" (data analysis, visualization, analytics, data pipelines)
+       - "Full Stack" (projects with both frontend and backend)
+       - "Frontend" (UI/UX, web design, client-side only)
+       - "Backend" (APIs, servers, databases, server-side logic)
+       - "Mobile App" (Android, iOS, React Native, Flutter)
+       - "DevOps" (CI/CD, infrastructure, Docker, Kubernetes)
+       - "Other" (if none of the above fit)
     
     Format the output as a valid JSON object with keys: 
     - "what_it_does" (string)
     - "tech_stack" (list of strings)
     - "key_features" (list of strings)
+    - "domain" (string - one of the exact values above)
     
     Do not include any markdown formatting like ```json. Just the raw JSON string.
     """
@@ -277,12 +385,13 @@ def save_to_dataset(repos_data: List[Dict[str, Any]], username: str):
             desc = repo.get("what_it_does", "A cool project.")
             stack = ", ".join(repo.get("tech_stack", []))
             features = ", ".join(repo.get("key_features", []))
+            domain = repo.get("domain", "Software Engineering")
             
             # Instruction 1: Describe the project
             entry1 = {
                 "instruction": f"What is the project {name} about?",
                 "input": "",
-                "output": f"Yo! So {name} is this awesome project that {desc} It's built using {stack}. Check it out!"
+                "output": f"Yo! So {name} is this awesome {domain} project that {desc} It's built using {stack}. Check it out!"
             }
             f.write(json.dumps(entry1) + "\n")
             
@@ -290,7 +399,7 @@ def save_to_dataset(repos_data: List[Dict[str, Any]], username: str):
             entry2 = {
                 "instruction": f"Write a resume bullet point for {name}.",
                 "input": "",
-                "output": f"🚀 Engineered {name}, a high-impact solution that {desc}, leveraging {stack} to deliver {features}."
+                "output": f"🚀 Engineered {name}, a high-impact {domain} solution that {desc}, leveraging {stack} to deliver {features}."
             }
             f.write(json.dumps(entry2) + "\n")
             
@@ -298,9 +407,17 @@ def save_to_dataset(repos_data: List[Dict[str, Any]], username: str):
             entry3 = {
                 "instruction": f"What tech stack does {name} use?",
                 "input": "",
-                "output": f"For {name}, we went full beast mode with {stack}! It's a solid setup for this kind of work."
+                "output": f"For {name}, we went full beast mode with {stack}! It's a solid {domain} setup."
             }
             f.write(json.dumps(entry3) + "\n")
+            
+            # Instruction 4: Domain Query
+            entry4 = {
+                "instruction": f"What kind of project is {name}?",
+                "input": "",
+                "output": f"{name} is a {domain} project."
+            }
+            f.write(json.dumps(entry4) + "\n")
     
     print(f"Saved {len(repos_data)} repos to {dataset_path} and fine-tuning data to {ft_path}")
 
@@ -309,7 +426,9 @@ async def analyze_user_profile(owner: str, token: str, username: str):
     if token:
         headers["Authorization"] = f"token {token}"
 
-    async with httpx.AsyncClient(follow_redirects=True, headers=headers) as client:
+    # Set reasonable timeouts
+    timeout = httpx.Timeout(10.0, read=30.0)
+    async with httpx.AsyncClient(follow_redirects=True, headers=headers, timeout=timeout) as client:
         # Fetch user repos
         repos_resp = await client.get(f"https://api.github.com/users/{owner}/repos?per_page=100&sort=updated")
         if repos_resp.status_code != 200:
@@ -319,12 +438,12 @@ async def analyze_user_profile(owner: str, token: str, username: str):
 
     # Fetch details for all repos with concurrency limit
     print(f"Found {len(repos)} repos. Fetching details...")
-    sem = asyncio.Semaphore(5) # Limit to 5 concurrent requests to avoid rate limits
+    sem = asyncio.Semaphore(3) # Limit to 3 concurrent requests to avoid timeouts
 
     async def fetch_with_sem(repo_name):
         async with sem:
             # Add a small delay to be nice to the API
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(0.8)
             return await fetch_github_data(owner, repo_name, token)
 
     tasks = [fetch_with_sem(r['name']) for r in repos]
@@ -362,9 +481,18 @@ async def analyze_user_profile(owner: str, token: str, username: str):
         2. A concise explanation of what it does (based on README).
         3. The tech stack used.
         4. Key features (max 3).
+        5. The Project Domain - MUST be ONE of these EXACT values:
+           - "Machine Learning" (AI/ML projects, neural networks, computer vision, NLP)
+           - "Data Science" (data analysis, visualization, analytics, data pipelines)
+           - "Full Stack" (projects with both frontend and backend)
+           - "Frontend" (UI/UX, web design, client-side only)
+           - "Backend" (APIs, servers, databases, server-side logic)
+           - "Mobile App" (Android, iOS, React Native, Flutter)
+           - "DevOps" (CI/CD, infrastructure, Docker, Kubernetes)
+           - "Other" (if none of the above fit)
 
         Format the output as a valid JSON LIST of objects. 
-        Example: [{"name": "repo1", "what_it_does": "...", "tech_stack": ["..."], "key_features": ["..."]}, ...]
+        Example: [{"name": "repo1", "what_it_does": "...", "tech_stack": ["..."], "key_features": ["..."], "domain": "Machine Learning"}, ...]
         Do not include any markdown formatting. Just the raw JSON string.
         """
         

@@ -7,98 +7,128 @@
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
         :root {
-            --primary-color: #2563eb; /* Solid Blue */
-            --primary-hover: #1d4ed8;
-            --bg-color: #f3f4f6;
-            --sidebar-bg: #ffffff;
-            --text-color: #1f2937;
-            --border-color: #e5e7eb;
-            --chat-bg: #ffffff;
-            --user-msg-bg: #2563eb;
-            --user-msg-text: #ffffff;
-            --agent-msg-bg: #f3f4f6;
-            --agent-msg-text: #1f2937;
+            --primary-gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            --bg-gradient: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            --sidebar-bg: rgba(255, 255, 255, 0.8);
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --border-color: #e2e8f0;
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         }
 
         body { 
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; 
+            font-family: 'Inter', system-ui, -apple-system, sans-serif; 
             margin: 0; 
-            background-color: var(--bg-color); 
+            background: var(--bg-gradient); 
             display: flex; 
             flex-direction: column; 
             height: 100vh; 
-            color: var(--text-color);
+            color: var(--text-primary);
         }
 
         /* Header */
         header { 
-            background: #111827; 
-            color: white; 
-            padding: 0 24px; 
-            height: 60px;
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(12px);
+            padding: 0 32px; 
+            height: 64px;
             display: flex; 
             justify-content: space-between; 
             align-items: center; 
-            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            border-bottom: 1px solid var(--border-color);
+            z-index: 10;
         }
-        header h1 { margin: 0; font-size: 18px; font-weight: 600; letter-spacing: -0.025em; }
-        nav a { color: #d1d5db; text-decoration: none; margin-left: 24px; font-size: 14px; transition: color 0.2s; }
-        nav a:hover { color: white; }
+        header h1 { 
+            margin: 0; 
+            font-size: 20px; 
+            font-weight: 700; 
+            background: var(--primary-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        nav a { 
+            color: var(--text-secondary); 
+            text-decoration: none; 
+            margin-left: 24px; 
+            font-size: 14px; 
+            font-weight: 500;
+            transition: color 0.2s; 
+        }
+        nav a:hover { color: var(--text-primary); }
         
         /* Layout */
         .main-container { display: flex; flex: 1; overflow: hidden; }
         
         /* Sidebar */
         .sidebar { 
-            width: 280px; 
+            width: 300px; 
             background: var(--sidebar-bg); 
+            backdrop-filter: blur(12px);
             border-right: 1px solid var(--border-color); 
             display: flex; 
             flex-direction: column; 
             overflow-y: auto;
+            padding: 24px;
+            gap: 24px;
         }
 
-        .sidebar-section {
-            padding: 20px;
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        .sidebar-section:last-child { border-bottom: none; }
-
-        .sidebar h2 { 
-            margin-top: 0; 
-            margin-bottom: 12px;
-            font-size: 14px; 
+        .sidebar-section h2 { 
+            margin: 0 0 12px 0;
+            font-size: 11px; 
             text-transform: uppercase; 
-            letter-spacing: 0.05em; 
-            color: #6b7280; 
-            font-weight: 600;
+            letter-spacing: 0.1em; 
+            color: var(--text-secondary); 
+            font-weight: 700;
         }
 
-        .sidebar p { font-size: 13px; color: #4b5563; margin-bottom: 16px; line-height: 1.5; }
+        .sidebar p { font-size: 13px; color: var(--text-secondary); margin-bottom: 16px; line-height: 1.5; }
         
         /* Buttons */
         button.primary { 
-            background: var(--primary-color); 
+            background: var(--primary-gradient); 
             color: white; 
             border: none; 
-            padding: 10px 16px; 
-            border-radius: 6px; 
+            padding: 12px 20px; 
+            border-radius: 12px; 
             cursor: pointer; 
             width: 100%; 
             font-size: 14px; 
-            font-weight: 500;
-            transition: background-color 0.2s;
+            font-weight: 600;
+            transition: all 0.2s;
+            box-shadow: var(--shadow-sm);
         }
-        button.primary:hover { background: var(--primary-hover); }
-        button:disabled { background: #9ca3af; cursor: not-allowed; }
+        button.primary:hover { 
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-md);
+            opacity: 0.95;
+        }
+        button:disabled { background: #cbd5e1; cursor: not-allowed; transform: none; }
+
+        button.secondary {
+            background: white;
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 10px 16px;
+            border-radius: 12px;
+            cursor: pointer;
+            width: 100%;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        button.secondary:hover { background: #f8fafc; border-color: #cbd5e1; }
 
         /* Chat Area */
         .content { 
             flex: 1; 
             display: flex; 
             flex-direction: column; 
-            background-color: white;
+            background: rgba(255, 255, 255, 0.6);
             position: relative;
         }
         
@@ -114,11 +144,12 @@
 
         .chat-history { 
             flex: 1; 
-            padding: 24px; 
+            padding: 32px; 
             overflow-y: auto; 
             display: flex;
             flex-direction: column;
             gap: 24px;
+            scroll-behavior: smooth;
         }
 
         /* Messages */
@@ -128,61 +159,65 @@
             max-width: 100%;
             line-height: 1.6;
             font-size: 15px;
+            animation: fadeIn 0.3s ease-out;
         }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         
-        .message.user { 
-            flex-direction: row-reverse; 
-        }
+        .message.user { flex-direction: row-reverse; }
 
         .avatar {
-            width: 32px;
-            height: 32px;
-            border-radius: 4px;
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 14px;
             font-weight: 600;
             flex-shrink: 0;
+            box-shadow: var(--shadow-sm);
         }
 
-        .message.agent .avatar { background: #10b981; color: white; } /* Green for AI */
-        .message.user .avatar { background: #6366f1; color: white; } /* Indigo for User */
+        .message.agent .avatar { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; }
+        .message.user .avatar { background: var(--primary-gradient); color: white; }
 
         .message-content {
-            padding: 12px 16px;
-            border-radius: 8px;
-            max-width: 80%;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            padding: 16px 20px;
+            border-radius: 16px;
+            max-width: 85%;
+            box-shadow: var(--shadow-sm);
         }
 
         .message.agent .message-content { 
-            background: var(--agent-msg-bg); 
-            color: var(--agent-msg-text); 
-            border-top-left-radius: 0;
+            background: white; 
+            color: var(--text-primary); 
+            border-top-left-radius: 4px;
+            border: 1px solid var(--border-color);
         }
         
         .message.user .message-content { 
-            background: var(--user-msg-bg); 
-            color: var(--user-msg-text); 
-            border-top-right-radius: 0;
+            background: var(--primary-gradient); 
+            color: white; 
+            border-top-right-radius: 4px;
         }
 
         .message p { margin: 0; }
         .message pre { 
-            background: #1f2937; 
-            color: #f3f4f6; 
-            padding: 12px; 
-            border-radius: 6px; 
+            background: #1e293b; 
+            color: #e2e8f0; 
+            padding: 16px; 
+            border-radius: 8px; 
             overflow-x: auto; 
             font-size: 13px;
+            margin: 12px 0;
         }
 
         /* Input Area */
         .chat-input-container {
-            padding: 24px;
-            background: white;
+            padding: 24px 32px;
+            background: rgba(255, 255, 255, 0.8);
             border-top: 1px solid var(--border-color);
+            backdrop-filter: blur(12px);
         }
 
         .chat-input-wrapper {
@@ -191,51 +226,73 @@
             position: relative;
             display: flex;
             gap: 12px;
+            background: white;
+            padding: 8px;
+            border-radius: 16px;
+            box-shadow: var(--shadow-md);
+            border: 1px solid var(--border-color);
         }
 
         .chat-input-wrapper input { 
             flex: 1; 
-            padding: 14px 16px; 
-            border: 1px solid var(--border-color); 
-            border-radius: 8px; 
+            padding: 12px 16px; 
+            border: none;
             font-size: 15px;
             outline: none;
-            transition: border-color 0.2s, box-shadow 0.2s;
+            background: transparent;
         }
         
-        .chat-input-wrapper input:focus { 
-            border-color: var(--primary-color); 
-            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-        }
-
         .chat-input-wrapper button {
             width: auto;
-            padding: 0 24px;
+            padding: 10px 24px;
+            border-radius: 10px;
             height: auto;
-        }
-
-        /* Status Indicators */
-        .status-text { margin-top: 8px; font-size: 12px; color: #6b7280; text-align: center; }
-        
-        /* History List in Sidebar */
-        .history-list {
-            list-style: none;
-            padding: 0;
             margin: 0;
         }
+
+        /* History List */
+        .history-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
         .history-item {
-            padding: 8px 12px;
-            margin-bottom: 4px;
-            border-radius: 6px;
+            padding: 12px;
+            border-radius: 8px;
             cursor: pointer;
-            font-size: 13px;
-            color: #374151;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            transition: background 0.2s;
+            font-size: 14px;
+            color: var(--text-primary);
+            transition: all 0.2s;
+            border: 1px solid transparent;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: white;
+            position: relative;
         }
-        .history-item:hover { background: #f3f4f6; }
+        .history-item:hover { background: #f1f5f9; border-color: var(--border-color); }
+        .history-item.active { background: #eff6ff; border-color: #bfdbfe; color: #2563eb; }
+        .history-item .icon { font-size: 16px; opacity: 0.5; }
+        .history-item .text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }
+        .history-item .actions {
+            display: none;
+            gap: 4px;
+        }
+        .history-item:hover .actions {
+            display: flex;
+        }
+        .history-item .action-btn {
+            padding: 4px 8px;
+            border: none;
+            background: rgba(0,0,0,0.05);
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+        .history-item .action-btn:hover {
+            background: rgba(0,0,0,0.1);
+        }
+        .history-item .action-btn.delete:hover {
+            background: #fee2e2;
+            color: #dc2626;
+        }
 
     </style>
 </head>
@@ -251,27 +308,36 @@
 
     <div class="main-container">
         <div class="sidebar">
-            <div class="sidebar-section">
-                <h2>Data Sync</h2>
-                <p>Fetch your latest repositories from GitHub to update the AI.</p>
-                <button class="primary" onclick="updateData()" id="updateBtn">Update from GitHub</button>
-                <div id="status" class="status-text"></div>
-            </div>
+            <button class="primary" onclick="startNewChat()" style="margin-bottom: 12px;">
+                + New Chat
+            </button>
 
-            <div class="sidebar-section">
-                <h2>Model Training</h2>
-                <p>Fine-tune Llama 3.1 on your RTX 2050.</p>
-                <button class="primary" onclick="startFineTuning()" id="trainBtn">Start GPU Fine-Tuning</button>
-                <div id="trainStatus" class="status-text"></div>
-            </div>
-            
-            <div class="sidebar-section" style="flex: 1; display: flex; flex-direction: column;">
-                <h2>Chat History</h2>
-                <div style="flex: 1; overflow-y: auto;">
+            <div class="sidebar-section" style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
+                <h2>Recent Chats</h2>
+                <div style="flex: 1; overflow-y: auto; margin: 0 -12px; padding: 0 12px;">
                     <ul class="history-list" id="historyList">
                         <!-- History items will be added here -->
-                        <li class="history-item" style="color: #9ca3af; font-style: italic; cursor: default;">No previous chats</li>
                     </ul>
+                </div>
+            </div>
+
+            <div class="sidebar-section" style="border-top: 1px solid var(--border-color); padding-top: 24px;">
+                <h2>System Controls</h2>
+                <div style="display: flex; flex-direction: column; gap: 16px;">
+                    <div>
+                        <p style="margin: 0 0 8px 0;">Data Sync</p>
+                        <button class="secondary" onclick="updateData()" id="updateBtn">
+                            <span>↻</span> Update from GitHub
+                        </button>
+                        <div id="status" class="status-text"></div>
+                    </div>
+                    <div>
+                        <p style="margin: 0 0 8px 0;">Model Training</p>
+                        <button class="secondary" onclick="startFineTuning()" id="trainBtn">
+                            <span>⚡</span> Start GPU Fine-Tuning
+                        </button>
+                        <div id="trainStatus" class="status-text"></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -279,12 +345,7 @@
         <div class="content">
             <div class="chat-box">
                 <div class="chat-history" id="chatHistory">
-                    <div class="message agent">
-                        <div class="avatar">AI</div>
-                        <div class="message-content">
-                            <p>Hello! I've analyzed your GitHub projects. How can I help you with your resume or portfolio today?</p>
-                        </div>
-                    </div>
+                    <!-- Messages will be rendered here -->
                 </div>
             </div>
             
@@ -301,25 +362,107 @@
         const token = localStorage.getItem('token');
         if (!token) window.location.href = '/';
 
-        // Load history from local storage
-        let sessionHistory = JSON.parse(localStorage.getItem('chatSessions')) || [];
+        // State
+        let sessions = JSON.parse(localStorage.getItem('sessions')) || {};
+        let currentSessionId = null;
 
-        function saveSession(query) {
-            const timestamp = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-            sessionHistory.unshift({ query, timestamp });
-            if (sessionHistory.length > 20) sessionHistory.pop(); // Keep last 20
-            localStorage.setItem('chatSessions', JSON.stringify(sessionHistory));
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadUser();
             renderHistoryList();
+            
+            // Load the most recent session or start new
+            const sortedSessions = Object.values(sessions).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            if (sortedSessions.length > 0) {
+                loadSession(sortedSessions[0].id);
+            } else {
+                startNewChat();
+            }
+        });
+
+        function startNewChat() {
+            currentSessionId = Date.now().toString();
+            sessions[currentSessionId] = {
+                id: currentSessionId,
+                title: "New Chat",
+                timestamp: new Date().toISOString(),
+                messages: [{
+                    role: 'agent',
+                    content: "Hello! I've analyzed your GitHub projects. How can I help you with your resume or portfolio today?"
+                }]
+            };
+            saveSessions();
+            loadSession(currentSessionId);
+        }
+
+        function loadSession(id) {
+            currentSessionId = id;
+            const session = sessions[id];
+            const historyDiv = document.getElementById('chatHistory');
+            historyDiv.innerHTML = '';
+            
+            session.messages.forEach(msg => renderMessage(msg.role, msg.content));
+            renderHistoryList();
+            
+            // Scroll to bottom
+            historyDiv.scrollTop = historyDiv.scrollHeight;
+        }
+
+        function renderMessage(role, content) {
+            const historyDiv = document.getElementById('chatHistory');
+            const isAgent = role === 'agent';
+            const avatar = isAgent ? 'AI' : 'U';
+            
+            // Parse markdown for agent messages
+            const htmlContent = isAgent ? marked.parse(content) : escapeHtml(content);
+            
+            const msgHtml = `
+                <div class="message ${role}">
+                    <div class="avatar">${avatar}</div>
+                    <div class="message-content">
+                        ${isAgent ? htmlContent : `<p>${htmlContent}</p>`}
+                    </div>
+                </div>`;
+            
+            historyDiv.insertAdjacentHTML('beforeend', msgHtml);
+        }
+
+        function saveMessage(role, content) {
+            if (!sessions[currentSessionId]) return;
+            
+            sessions[currentSessionId].messages.push({ role, content });
+            
+            // Update title if it's the first user message
+            if (role === 'user' && sessions[currentSessionId].messages.length === 2) {
+                sessions[currentSessionId].title = content.substring(0, 30) + (content.length > 30 ? '...' : '');
+            }
+            
+            sessions[currentSessionId].timestamp = new Date().toISOString();
+            saveSessions();
+            renderHistoryList();
+        }
+
+        function saveSessions() {
+            localStorage.setItem('sessions', JSON.stringify(sessions));
         }
 
         function renderHistoryList() {
             const list = document.getElementById('historyList');
-            if (sessionHistory.length === 0) return;
+            const sortedSessions = Object.values(sessions).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
             
-            list.innerHTML = sessionHistory.map(item => `
-                <li class="history-item" title="${item.query}">
-                    <span style="color: #9ca3af; font-size: 11px; margin-right: 6px;">${item.timestamp}</span>
-                    ${item.query}
+            if (sortedSessions.length === 0) {
+                list.innerHTML = '<li class="history-item" style="color: var(--text-secondary); font-style: italic; cursor: default;">No previous chats</li>';
+                return;
+            }
+            
+            list.innerHTML = sortedSessions.map(session => `
+                <li class="history-item ${session.id === currentSessionId ? 'active' : ''}" onclick="loadSession('${session.id}')">
+                    <span class="icon">💬</span>
+                    <span class="text">${escapeHtml(session.title)}</span>
+                    <div class="actions">
+                        <button class="action-btn" onclick="event.stopPropagation(); renameSession('${session.id}')" title="Rename">✏️</button>
+                        <button class="action-btn delete" onclick="event.stopPropagation(); deleteSession('${session.id}')" title="Delete">🗑️</button>
+                    </div>
                 </li>
             `).join('');
         }
@@ -403,38 +546,85 @@
 
         async function askAgent() {
             const input = document.getElementById('queryInput');
-            const history = document.getElementById('chatHistory');
+            const historyDiv = document.getElementById('chatHistory');
             const query = input.value.trim();
             
             if (!query) return;
             
-            // Save to sidebar history
-            saveSession(query);
-
-            // Add user message
-            history.innerHTML += `
-                <div class="message user">
-                    <div class="avatar">U</div>
-                    <div class="message-content">
-                        <p>${query}</p>
-                    </div>
-                </div>`;
+            // Add user message to UI and State
+            renderMessage('user', query);
+            saveMessage('user', query);
+            
             input.value = '';
-            history.scrollTop = history.scrollHeight;
+            historyDiv.scrollTop = historyDiv.scrollHeight;
 
-            // Add loading placeholder
-            const loadingId = 'loading-' + Date.now();
-            history.innerHTML += `
-                <div class="message agent" id="${loadingId}">
+            // Check if this is a resume request
+            const isResumeRequest = /resume|cv|curriculum/i.test(query);
+
+            // If resume request, use file generation endpoint
+            if (isResumeRequest) {
+                const loadingId = 'loading-' + Date.now();
+                historyDiv.insertAdjacentHTML('beforeend', `
+                    <div class="message agent" id="${loadingId}">
+                        <div class="avatar">AI</div>
+                        <div class="message-content">
+                            <p>🔄 Generating your resume... This may take a moment.</p>
+                        </div>
+                    </div>`);
+                historyDiv.scrollTop = historyDiv.scrollHeight;
+
+                try {
+                    const response = await fetch('/generate-resume', {
+                        method: 'POST',
+                        headers: { 
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ query })
+                    });
+                    
+                    const data = await response.json();
+                    const agentMsg = document.getElementById(loadingId);
+                    
+                    if (response.ok && data.success) {
+                        const content = `
+                            <p>✅ <strong>${data.message}</strong></p>
+                            <button class="primary" onclick="downloadResume('${data.filename}')" style="margin-top: 12px; padding: 10px 20px; cursor: pointer;">
+                                📥 Download ${data.filename}
+                            </button>
+                            <p style="margin-top: 8px; font-size: 13px; color: #6b7280;">
+                                You can compile this .tex file using <a href="https://www.overleaf.com/" target="_blank" style="color: #2563eb;">Overleaf</a> or a local LaTeX editor.
+                            </p>
+                        `;
+                        agentMsg.querySelector('.message-content').innerHTML = content;
+                        saveMessage('agent', content); // Save the HTML content for resume
+                    } else {
+                        throw new Error(data.detail || 'Failed to generate resume');
+                    }
+                } catch (e) {
+                    const agentMsg = document.getElementById(loadingId);
+                    const errorMsg = `<p style="color:#dc2626">❌ Error: ${e.message}</p>`;
+                    agentMsg.querySelector('.message-content').innerHTML = errorMsg;
+                    saveMessage('agent', errorMsg);
+                }
+                historyDiv.scrollTop = historyDiv.scrollHeight;
+                return;
+            }
+
+            // Regular chat - use streaming
+            const streamId = 'stream-' + Date.now();
+            historyDiv.insertAdjacentHTML('beforeend', `
+                <div class="message agent" id="${streamId}">
                     <div class="avatar">AI</div>
                     <div class="message-content">
-                        <p>Thinking...</p>
+                        <div class="streaming-text"></div>
                     </div>
-                </div>`;
-            history.scrollTop = history.scrollHeight;
+                </div>`);
+            historyDiv.scrollTop = historyDiv.scrollHeight;
 
+            let fullText = '';
             try {
-                const response = await fetch('/ask', {
+                const response = await fetch('/ask/stream', {
                     method: 'POST',
                     headers: { 
                         'Authorization': `Bearer ${token}`,
@@ -443,23 +633,93 @@
                     body: JSON.stringify({ query })
                 });
                 
-                const data = await response.json();
-                const agentMsg = document.getElementById(loadingId);
-                // Replace the content div only
-                agentMsg.querySelector('.message-content').innerHTML = marked.parse(data.response);
+                if (!response.ok) throw new Error('Request failed');
+                
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+                
+                const agentMsg = document.getElementById(streamId);
+                const contentDiv = agentMsg.querySelector('.streaming-text');
+                
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop();
+                    
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const data = JSON.parse(line.slice(6));
+                            fullText += data.token;
+                            // Update with markdown parsing
+                            contentDiv.innerHTML = marked.parse(fullText);
+                            historyDiv.scrollTop = historyDiv.scrollHeight;
+                        }
+                    }
+                }
+                // Save final message
+                saveMessage('agent', fullText);
+                
             } catch (e) {
-                const agentMsg = document.getElementById(loadingId);
-                agentMsg.querySelector('.message-content').innerHTML = `<p style="color:#dc2626">Error: ${e.message}</p>`;
+                const agentMsg = document.getElementById(streamId);
+                const errorMsg = `<p style="color:#dc2626">Error: ${e.message}</p>`;
+                agentMsg.querySelector('.message-content').innerHTML = errorMsg;
+                saveMessage('agent', errorMsg);
             }
-            history.scrollTop = history.scrollHeight;
+            historyDiv.scrollTop = historyDiv.scrollHeight;
+        }
+        
+        function downloadResume(filename) {
+            window.location.href = `/download/${filename}?token=${token}`;
+        }
+        
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
 
         function handleEnter(e) {
             if (e.key === 'Enter') askAgent();
         }
 
-        loadUser();
-        renderHistoryList();
+        function renameSession(id) {
+            const session = sessions[id];
+            if (!session) return;
+            
+            const newTitle = prompt('Rename chat:', session.title);
+            if (newTitle && newTitle.trim()) {
+                session.title = newTitle.trim();
+                saveSessions();
+                renderHistoryList();
+            }
+        }
+
+        function deleteSession(id) {
+            const session = sessions[id];
+            if (!session) return;
+            
+            if (!confirm(`Delete "${session.title}"?`)) return;
+            
+            delete sessions[id];
+            saveSessions();
+            
+            // If deleting current session, load another or start new
+            if (id === currentSessionId) {
+                const sortedSessions = Object.values(sessions).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+                if (sortedSessions.length > 0) {
+                    loadSession(sortedSessions[0].id);
+                } else {
+                    startNewChat();
+                }
+            } else {
+                renderHistoryList();
+            }
+        }
     </script>
 </body>
 </html>
