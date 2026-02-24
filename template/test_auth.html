@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Authentication - Code2Resume</title>
+    <style>
+        body { 
+            font-family: 'Segoe UI', sans-serif; 
+            max-width: 800px; 
+            margin: 50px auto; 
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .card { 
+            background: white; 
+            padding: 30px; 
+            border-radius: 16px; 
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+        }
+        h1 { margin-top: 0; color: #333; }
+        h2 { color: #667eea; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px; }
+        .test-section { margin: 20px 0; }
+        button { 
+            padding: 10px 20px; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+            color: white; 
+            border: none; 
+            border-radius: 8px; 
+            cursor: pointer; 
+            font-size: 14px;
+            margin-right: 10px;
+        }
+        button:hover { transform: translateY(-2px); }
+        .result { 
+            margin-top: 10px; 
+            padding: 15px; 
+            border-radius: 8px; 
+            font-family: monospace; 
+            font-size: 12px; 
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .success { background: #d1fae5; color: #065f46; }
+        .error { background: #fee2e2; color: #dc2626; }
+        .info { background: #dbeafe; color: #1e40af; }
+        input { 
+            width: 100%; 
+            padding: 10px; 
+            margin: 5px 0 15px 0; 
+            border: 1px solid #ddd; 
+            border-radius: 8px; 
+            box-sizing: border-box;
+        }
+        label { font-weight: 600; color: #555; display: block; margin-top: 10px; }
+        .links { margin-top: 20px; }
+        .links a { 
+            display: inline-block; 
+            margin-right: 15px; 
+            color: #667eea; 
+            text-decoration: none; 
+            font-weight: 600;
+        }
+        .links a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>🧪 Authentication Test Suite</h1>
+        <p>Test the registration and login functionality</p>
+        
+        <div class="links">
+            <a href="/">← Login Page</a>
+            <a href="/register">Register Page</a>
+            <a href="/dashboard">Dashboard</a>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>1. Test Registration</h2>
+        <div class="test-section">
+            <label>Username</label>
+            <input type="text" id="reg_username" value="testuser" placeholder="testuser">
+            
+            <label>Password</label>
+            <input type="password" id="reg_password" value="testpass123" placeholder="password">
+            
+            <label>Gmail</label>
+            <input type="email" id="reg_gmail" value="test@gmail.com" placeholder="test@gmail.com">
+            
+            <label>Mobile Number</label>
+            <input type="tel" id="reg_mobile" value="+1234567890" placeholder="+1234567890">
+            
+            <label>GitHub URL</label>
+            <input type="text" id="reg_github_url" value="https://github.com/testuser" placeholder="https://github.com/username">
+            
+            <label>GitHub Token (Use real token)</label>
+            <input type="password" id="reg_github_token" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
+            
+            <label>LinkedIn ID (optional)</label>
+            <input type="text" id="reg_linkedin" value="testuser" placeholder="testuser">
+            
+            <label>LeetCode ID (optional)</label>
+            <input type="text" id="reg_leetcode" value="testuser" placeholder="testuser">
+            
+            <button onclick="testRegister()">Test Register</button>
+            <div id="registerResult"></div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>2. Test Login</h2>
+        <div class="test-section">
+            <label>Username</label>
+            <input type="text" id="login_username" value="testuser" placeholder="testuser">
+            
+            <label>Password</label>
+            <input type="password" id="login_password" value="testpass123" placeholder="password">
+            
+            <button onclick="testLogin()">Test Login</button>
+            <div id="loginResult"></div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>3. Test Get User Info</h2>
+        <div class="test-section">
+            <button onclick="testGetUser()">Get Current User</button>
+            <button onclick="clearToken()">Clear Token</button>
+            <div id="userResult"></div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>4. Database Status</h2>
+        <div class="test-section">
+            <button onclick="checkDatabase()">Check Database</button>
+            <div id="dbResult"></div>
+        </div>
+    </div>
+
+    <script>
+        async function testRegister() {
+            const resultDiv = document.getElementById('registerResult');
+            resultDiv.className = 'result info';
+            resultDiv.textContent = 'Registering...';
+
+            try {
+                const payload = {
+                    username: document.getElementById('reg_username').value,
+                    password: document.getElementById('reg_password').value,
+                    gmail: document.getElementById('reg_gmail').value,
+                    mobile_number: document.getElementById('reg_mobile').value,
+                    github_url: document.getElementById('reg_github_url').value,
+                    github_token: document.getElementById('reg_github_token').value,
+                    linkedin_id: document.getElementById('reg_linkedin').value,
+                    leetcode_id: document.getElementById('reg_leetcode').value
+                };
+
+                const response = await fetch('/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = '✓ Registration successful!\n\n' + JSON.stringify(data, null, 2);
+                    localStorage.setItem('token', data.access_token);
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = '✗ Registration failed\n\n' + JSON.stringify(data, null, 2);
+                }
+            } catch (e) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = '✗ Error: ' + e.message;
+            }
+        }
+
+        async function testLogin() {
+            const resultDiv = document.getElementById('loginResult');
+            resultDiv.className = 'result info';
+            resultDiv.textContent = 'Logging in...';
+
+            try {
+                const formData = new FormData();
+                formData.append('username', document.getElementById('login_username').value);
+                formData.append('password', document.getElementById('login_password').value);
+
+                const response = await fetch('/auth/login', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = '✓ Login successful!\n\n' + JSON.stringify(data, null, 2);
+                    localStorage.setItem('token', data.access_token);
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = '✗ Login failed\n\n' + JSON.stringify(data, null, 2);
+                }
+            } catch (e) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = '✗ Error: ' + e.message;
+            }
+        }
+
+        async function testGetUser() {
+            const resultDiv = document.getElementById('userResult');
+            const token = localStorage.getItem('token');
+
+            if (!token) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = '✗ No token found. Please login first.';
+                return;
+            }
+
+            resultDiv.className = 'result info';
+            resultDiv.textContent = 'Fetching user info...';
+
+            try {
+                const response = await fetch('/auth/me', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = '✓ User info retrieved!\n\n' + JSON.stringify(data, null, 2);
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = '✗ Failed to get user info\n\n' + JSON.stringify(data, null, 2);
+                }
+            } catch (e) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = '✗ Error: ' + e.message;
+            }
+        }
+
+        function clearToken() {
+            localStorage.removeItem('token');
+            document.getElementById('userResult').className = 'result info';
+            document.getElementById('userResult').textContent = 'Token cleared from localStorage';
+        }
+
+        async function checkDatabase() {
+            const resultDiv = document.getElementById('dbResult');
+            resultDiv.className = 'result info';
+            resultDiv.textContent = 'Checking database status...\n\n' +
+                'Database file should exist at: ./users.db\n' +
+                'Tables: users\n' +
+                'Columns: id, username, hashed_password, github_url, github_token, linkedin_id, leetcode_id, gmail, mobile_number';
+        }
+    </script>
+</body>
+</html>

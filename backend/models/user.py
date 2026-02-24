@@ -9,3 +9,7 @@ class User(Base):
     hashed_password = Column(String)
     github_url = Column(String)
     github_token = Column(String)
+    linkedin_id = Column(String, nullable=True)
+    leetcode_id = Column(String, nullable=True)
+    gmail = Column(String, nullable=True)
+    mobile_number = Column(String, nullable=True)

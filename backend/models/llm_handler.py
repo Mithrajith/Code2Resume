@@ -1,63 +1,109 @@
 import ollama
+import openai
 import asyncio
 import json
 import re
+import httpx
 from typing import Dict, List, Optional, Any
 from config.settings import settings
 
 class LLMHandler:
-    """Handler for Local LLM integration using Ollama"""
+    """Handler for LLM integration with Ollama and OpenAI fallback"""
     
     def __init__(self):
-        self.client = ollama.Client(host=settings.ollama_host)
+        # Ollama configuration
+        self.ollama_client = ollama.Client(host=settings.ollama_host)
         self.default_model = settings.default_model
         self.fallback_model = settings.fallback_model
+        
+        # OpenAI configuration
+        if settings.has_openai_key:
+            self.openai_client = openai.AsyncOpenAI(api_key=settings.openai_api_key)
+            self.openai_model = settings.openai_model
+            self.openai_fallback_model = settings.openai_fallback_model
+        else:
+            self.openai_client = None
+            
         self.max_tokens = settings.max_tokens
         self.temperature = settings.temperature
     
     async def generate_resume_content(self, prompt: str) -> Dict[str, Any]:
-        """Generate resume content using the configured LLM"""
+        """Generate resume content using available LLM (Ollama preferred, OpenAI fallback)"""
+        try:
+            # First, try to use Ollama
+            is_ollama_available = await self._check_ollama_availability()
+            
+            if is_ollama_available:
+                print("Using Ollama for content generation...")
+                response = await self._generate_with_ollama(prompt)
+                if response:
+                    parsed_content = self._parse_llm_response(response)
+                    return parsed_content
+                    
+            # Fallback to OpenAI if Ollama is not available or failed
+            if self.openai_client:
+                print("Ollama not available, falling back to OpenAI...")
+                response = await self._generate_with_openai(prompt)
+                if response:
+                    parsed_content = self._parse_llm_response(response)
+                    return parsed_content
+            
+            # If both fail, raise exception
+            raise Exception("Both Ollama and OpenAI generation failed")
+            
+        except Exception as e:
+            print(f"LLM generation failed: {str(e)}")
+            # Return fallback content instead of raising exception
+            return self._get_fallback_content()
+    
+    async def _check_ollama_availability(self) -> bool:
+        """Check if Ollama service is running and accessible"""
+        try:
+            # Test connection with a timeout
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                response = await client.get(f"{settings.ollama_host}/api/version")
+                return response.status_code == 200
+        except Exception:
+            return False
+    
+    async def _generate_with_ollama(self, prompt: str) -> Optional[str]:
+        """Generate content using Ollama"""
         try:
             # Try primary model first
-            response = await self._generate_with_model(prompt, self.default_model)
+            response = await self._generate_with_ollama_model(prompt, self.default_model)
             
             if not response:
                 # Fallback to alternative model
-                response = await self._generate_with_model(prompt, self.fallback_model)
+                response = await self._generate_with_ollama_model(prompt, self.fallback_model)
             
-            if not response:
-                raise Exception("Both primary and fallback models failed")
-            
-            # Parse the structured response
-            parsed_content = self._parse_llm_response(response)
-            
-            return parsed_content
+            return response
             
         except Exception as e:
-            raise Exception(f"LLM generation failed: {str(e)}")
+            print(f"Ollama generation failed: {str(e)}")
+            return None
     
-    async def _generate_with_model(self, prompt: str, model: str) -> Optional[str]:
-        """Generate content with a specific model"""
+    async def _generate_with_ollama_model(self, prompt: str, model: str) -> Optional[str]:
+        """Generate content with a specific Ollama model"""
         try:
             # Check if model is available
-            if not await self._is_model_available(model):
+            if not await self._is_ollama_model_available(model):
                 print(f"Model {model} not available, attempting to pull...")
-                await self._pull_model(model)
+                await self._pull_ollama_model(model)
             
             # Generate response
             response = await asyncio.get_event_loop().run_in_executor(
-                None, self._sync_generate, prompt, model
+                None, self._sync_ollama_generate, prompt, model
             )
             
             return response
             
         except Exception as e:
-            print(f"Generation with model {model} failed: {str(e)}")
+            print(f"Generation with Ollama model {model} failed: {str(e)}")
             return None
     
-    def _sync_generate(self, prompt: str, model: str) -> str:
-        """Synchronous generation for executor"""
-        response = self.client.generate(
+    def _sync_ollama_generate(self, prompt: str, model: str) -> str:
+        """Synchronous Ollama generation for executor"""
+        response = self.ollama_client.generate(
             model=model,
             prompt=prompt,
             options={
@@ -69,27 +115,63 @@ class LLMHandler:
         )
         return response['response']
     
-    async def _is_model_available(self, model: str) -> bool:
-        """Check if a model is available locally"""
+    async def _is_ollama_model_available(self, model: str) -> bool:
+        """Check if an Ollama model is available locally"""
         try:
             models = await asyncio.get_event_loop().run_in_executor(
-                None, self.client.list
+                None, self.ollama_client.list
             )
             available_models = [m['name'] for m in models['models']]
             return any(model in available_model for available_model in available_models)
         except Exception:
             return False
     
-    async def _pull_model(self, model: str) -> bool:
-        """Pull a model if it's not available locally"""
+    async def _pull_ollama_model(self, model: str) -> bool:
+        """Pull an Ollama model if it's not available locally"""
         try:
             await asyncio.get_event_loop().run_in_executor(
-                None, lambda: self.client.pull(model)
+                None, lambda: self.ollama_client.pull(model)
             )
             return True
         except Exception as e:
-            print(f"Failed to pull model {model}: {str(e)}")
+            print(f"Failed to pull Ollama model {model}: {str(e)}")
             return False
+    
+    async def _generate_with_openai(self, prompt: str) -> Optional[str]:
+        """Generate content using OpenAI API"""
+        try:
+            # Try primary OpenAI model first
+            response = await self._generate_with_openai_model(prompt, self.openai_model)
+            
+            if not response:
+                # Fallback to alternative OpenAI model
+                response = await self._generate_with_openai_model(prompt, self.openai_fallback_model)
+            
+            return response
+            
+        except Exception as e:
+            print(f"OpenAI generation failed: {str(e)}")
+            return None
+    
+    async def _generate_with_openai_model(self, prompt: str, model: str) -> Optional[str]:
+        """Generate content with a specific OpenAI model"""
+        try:
+            response = await self.openai_client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": "You are a professional resume writer that generates structured content based on code repositories."},
+                    {"role": "user", "content": prompt}
+                ],
+                max_tokens=min(self.max_tokens, 4000),  # OpenAI has token limits
+                temperature=self.temperature,
+                top_p=0.9
+            )
+            
+            return response.choices[0].message.content
+            
+        except Exception as e:
+            print(f"Generation with OpenAI model {model} failed: {str(e)}")
+            return None
     
     def _parse_llm_response(self, response: str) -> Dict[str, Any]:
         """Parse the structured LLM response into components"""
@@ -189,33 +271,73 @@ class LLMHandler:
         }
     
     async def test_connection(self) -> Dict[str, Any]:
-        """Test connection to Ollama service"""
+        """Test connection to available LLM services"""
+        result = {
+            'ollama_status': 'not_available',
+            'openai_status': 'not_available',
+            'primary_service': 'none',
+            'available_models': [],
+            'default_model': self.default_model,
+            'fallback_model': self.fallback_model
+        }
+        
+        # Test Ollama connection
         try:
-            models = await asyncio.get_event_loop().run_in_executor(
-                None, self.client.list
-            )
-            
-            return {
-                'status': 'connected',
-                'available_models': [m['name'] for m in models['models']],
-                'default_model': self.default_model,
-                'fallback_model': self.fallback_model
-            }
+            is_ollama_available = await self._check_ollama_availability()
+            if is_ollama_available:
+                models = await asyncio.get_event_loop().run_in_executor(
+                    None, self.ollama_client.list
+                )
+                result['ollama_status'] = 'connected'
+                result['available_models'].extend([m['name'] for m in models['models']])
+                result['primary_service'] = 'ollama'
+            else:
+                result['ollama_status'] = 'service_not_running'
         except Exception as e:
-            return {
-                'status': 'error',
-                'message': str(e),
-                'suggestion': 'Make sure Ollama is running on ' + settings.ollama_host
-            }
+            result['ollama_status'] = f'error: {str(e)}'
+        
+        # Test OpenAI connection
+        if self.openai_client:
+            try:
+                # Try a simple API call to test the key
+                await self.openai_client.chat.completions.create(
+                    model=self.openai_model,
+                    messages=[{"role": "user", "content": "test"}],
+                    max_tokens=1
+                )
+                result['openai_status'] = 'connected'
+                result['available_models'].extend([self.openai_model, self.openai_fallback_model])
+                
+                # If Ollama is not the primary service, make OpenAI primary
+                if result['primary_service'] == 'none':
+                    result['primary_service'] = 'openai'
+                    
+            except Exception as e:
+                result['openai_status'] = f'error: {str(e)}'
+        else:
+            result['openai_status'] = 'no_api_key'
+        
+        return result
     
     async def get_model_info(self, model: str) -> Dict[str, Any]:
-        """Get information about a specific model"""
+        """Get information about a specific model (Ollama or OpenAI)"""
+        # Check if it's an OpenAI model
+        if model in [self.openai_model, self.openai_fallback_model]:
+            return {
+                'name': model,
+                'service': 'openai',
+                'available': bool(self.openai_client),
+                'description': 'OpenAI GPT model'
+            }
+        
+        # Otherwise, try to get Ollama model info
         try:
             info = await asyncio.get_event_loop().run_in_executor(
-                None, lambda: self.client.show(model)
+                None, lambda: self.ollama_client.show(model)
             )
             return {
                 'name': model,
+                'service': 'ollama',
                 'size': info.get('size', 'Unknown'),
                 'modified_at': info.get('modified_at', 'Unknown'),
                 'available': True
@@ -223,6 +345,7 @@ class LLMHandler:
         except Exception as e:
             return {
                 'name': model,
+                'service': 'ollama',
                 'available': False,
                 'error': str(e)
             }

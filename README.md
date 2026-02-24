@@ -354,7 +354,7 @@ OLLAMA_HOST=http://localhost:11434
 ./run.sh
 ```
 
-The app will start on `http://localhost:8000`
+The app will start on `http://localhost:8001`
 
 **Note**: For GPU usage, ensure:
 ```bash

@@ -5,42 +5,266 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Settings - Code2Resume</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background-color: #f9f9f9; }
-        header { background: #333; color: white; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; }
-        header h1 { margin: 0; font-size: 20px; }
-        nav a { color: white; text-decoration: none; margin-left: 20px; font-size: 14px; }
+        :root {
+            --primary-gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            --bg-gradient: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --border-color: #e2e8f0;
+        }
+
+        body { 
+            font-family: 'Inter', system-ui, -apple-system, sans-serif; 
+            margin: 0; 
+            background: var(--bg-gradient);
+            color: var(--text-primary);
+        }
+
+        header { 
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(12px);
+            padding: 0 32px; 
+            height: 64px;
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            border-bottom: 1px solid var(--border-color);
+        }
         
-        .container { max-width: 600px; margin: 40px auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        h2 { margin-top: 0; border-bottom: 1px solid #eee; padding-bottom: 15px; }
+        header h1 { 
+            margin: 0; 
+            font-size: 20px; 
+            font-weight: 700; 
+            background: var(--primary-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
         
-        .form-group { margin-bottom: 20px; }
-        label { display: block; margin-bottom: 5px; font-weight: 600; color: #555; }
-        input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
-        .info { font-size: 12px; color: #888; margin-top: 5px; }
+        nav a { 
+            color: var(--text-secondary); 
+            text-decoration: none; 
+            margin-left: 24px; 
+            font-size: 14px; 
+            font-weight: 500;
+            transition: color 0.2s; 
+        }
+        nav a:hover { color: var(--text-primary); }
         
-        button { padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
-        button:hover { background: #0056b3; }
+        .container { 
+            max-width: 700px; 
+            margin: 40px auto; 
+            background: white; 
+            padding: 40px; 
+            border-radius: 16px; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+        
+        h2 { 
+            margin-top: 0; 
+            border-bottom: 2px solid var(--border-color); 
+            padding-bottom: 15px;
+            font-size: 24px;
+            color: var(--text-primary);
+        }
+        
+        .section-title { 
+            font-size: 12px; 
+            text-transform: uppercase; 
+            letter-spacing: 0.5px; 
+            color: #6366f1; 
+            font-weight: 700; 
+            margin: 30px 0 15px 0; 
+            border-bottom: 2px solid #e5e7eb; 
+            padding-bottom: 8px; 
+        }
+        
+        .form-group { 
+            margin-bottom: 20px; 
+        }
+        
+        label { 
+            display: block; 
+            margin-bottom: 6px; 
+            font-weight: 500; 
+            color: #555; 
+            font-size: 14px;
+        }
+        
+        input { 
+            width: 100%; 
+            padding: 12px; 
+            border: 1px solid var(--border-color); 
+            border-radius: 8px; 
+            box-sizing: border-box; 
+            font-size: 15px;
+            transition: border-color 0.2s;
+        }
+        
+        input:focus { 
+            outline: none; 
+            border-color: #6366f1; 
+        }
+        
+        input:disabled {
+            background: #f8fafc;
+            color: #94a3b8;
+            cursor: not-allowed;
+        }
+        
+        .info { 
+            font-size: 12px; 
+            color: #888; 
+            margin-top: 5px; 
+            line-height: 1.4;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 12px;
+            margin-top: 30px;
+        }
+        
+        button { 
+            padding: 12px 24px; 
+            background: var(--primary-gradient); 
+            color: white; 
+            border: none; 
+            border-radius: 8px; 
+            cursor: pointer; 
+            font-size: 16px; 
+            font-weight: 600;
+            transition: all 0.2s;
+            flex: 1;
+        }
+        
+        button:hover { 
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+        }
+        
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        button.secondary {
+            background: white;
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+        }
+        
+        button.secondary:hover {
+            background: #f8fafc;
+            box-shadow: none;
+        }
+        
+        .success-message {
+            background: #d1fae5;
+            color: #065f46;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+            font-size: 14px;
+        }
+        
+        .error-message {
+            background: #fee2e2;
+            color: #dc2626;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+            font-size: 14px;
+        }
+
+        .locked-field {
+            position: relative;
+        }
+        
+        .locked-field::after {
+            content: "🔒";
+            position: absolute;
+            right: 12px;
+            top: 38px;
+            font-size: 18px;
+            pointer-events: none;
+        }
     </style>
 </head>
 <body>
     <header>
         <h1>Code2Resume</h1>
         <nav>
+            <span id="usernameDisplay" style="color: var(--text-primary); font-weight: 600;"></span>
             <a href="/dashboard">Dashboard</a>
             <a href="#" onclick="logout()">Logout</a>
         </nav>
     </header>
 
     <div class="container">
-        <h2>Settings</h2>
+        <h2>Account Settings</h2>
+        
+        <div id="successMessage" class="success-message"></div>
+        <div id="errorMessage" class="error-message"></div>
+        
         <form id="settingsForm">
+            <div class="section-title">Account Details</div>
+            
+            <div class="form-group">
+                <label>Username</label>
+                <input type="text" id="username" disabled>
+                <div class="info">Username cannot be changed after registration</div>
+            </div>
+            
+            <div class="form-group">
+                <label>New Password (Leave blank to keep current)</label>
+                <input type="password" id="password" placeholder="Enter new password">
+                <div class="info">Only fill this if you want to change your password</div>
+            </div>
+            
+            <div class="section-title">Contact Information</div>
+            
+            <div class="form-group">
+                <label>Gmail</label>
+                <input type="email" id="gmail" placeholder="your.email@gmail.com">
+            </div>
+            
+            <div class="form-group">
+                <label>Mobile Number</label>
+                <input type="tel" id="mobile_number" placeholder="+1 234 567 8900">
+            </div>
+            
+            <div class="section-title">Professional Profiles</div>
+            
             <div class="form-group">
                 <label>GitHub Profile URL</label>
-                <input type="text" id="github_url" readonly style="background: #f0f0f0; color: #666;">
-                <div class="info">Currently, you cannot change the URL after registration.</div>
+                <input type="url" id="github_url" placeholder="https://github.com/username">
             </div>
-            <!-- Future: Add token update or password change here -->
-            <button type="button" onclick="window.location.href='/dashboard'">Back to Dashboard</button>
+            
+            <div class="form-group locked-field">
+                <label>GitHub Personal Access Token</label>
+                <input type="password" id="github_token" disabled value="••••••••••••••••••••">
+                <div class="info">Token is securely stored and cannot be viewed or changed</div>
+            </div>
+            
+            <div class="form-group">
+                <label>LinkedIn Profile ID</label>
+                <input type="text" id="linkedin_id" placeholder="john-doe-123456">
+                <div class="info">Your LinkedIn username (from URL: linkedin.com/in/[username])</div>
+            </div>
+            
+            <div class="form-group">
+                <label>LeetCode Profile ID</label>
+                <input type="text" id="leetcode_id" placeholder="username">
+                <div class="info">Your LeetCode username (from URL: leetcode.com/[username])</div>
+            </div>
+            
+            <div class="button-group">
+                <button type="button" class="secondary" onclick="window.location.href='/dashboard'">Cancel</button>
+                <button type="submit">Save Changes</button>
+            </div>
         </form>
     </div>
 
@@ -55,11 +279,79 @@
                 });
                 if (!response.ok) throw new Error('Unauthorized');
                 const user = await response.json();
-                document.getElementById('github_url').value = user.github_url;
+                
+                document.getElementById('username').value = user.username;
+                document.getElementById('usernameDisplay').textContent = user.username;
+                document.getElementById('github_url').value = user.github_url || '';
+                document.getElementById('linkedin_id').value = user.linkedin_id || '';
+                document.getElementById('leetcode_id').value = user.leetcode_id || '';
+                document.getElementById('gmail').value = user.gmail || '';
+                document.getElementById('mobile_number').value = user.mobile_number || '';
             } catch (e) {
                 logout();
             }
         }
+
+        document.getElementById('settingsForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const successDiv = document.getElementById('successMessage');
+            const errorDiv = document.getElementById('errorMessage');
+            const btn = e.target.querySelector('button[type="submit"]');
+            
+            successDiv.style.display = 'none';
+            errorDiv.style.display = 'none';
+            
+            btn.disabled = true;
+            btn.textContent = 'Saving...';
+            
+            try {
+                const payload = {
+                    github_url: document.getElementById('github_url').value.trim(),
+                    linkedin_id: document.getElementById('linkedin_id').value.trim(),
+                    leetcode_id: document.getElementById('leetcode_id').value.trim(),
+                    gmail: document.getElementById('gmail').value.trim(),
+                    mobile_number: document.getElementById('mobile_number').value.trim()
+                };
+                
+                // Only include password if it's filled
+                const password = document.getElementById('password').value;
+                if (password) {
+                    payload.password = password;
+                }
+                
+                const response = await fetch('/auth/me', {
+                    method: 'PUT',
+                    headers: { 
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.detail || 'Update failed');
+                }
+                
+                successDiv.textContent = '✓ Settings updated successfully!';
+                successDiv.style.display = 'block';
+                
+                // Clear password field
+                document.getElementById('password').value = '';
+                
+                // Scroll to top to show message
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                
+            } catch (err) {
+                errorDiv.textContent = '✗ ' + err.message;
+                errorDiv.style.display = 'block';
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Save Changes';
+            }
+        });
 
         function logout() {
             localStorage.removeItem('token');

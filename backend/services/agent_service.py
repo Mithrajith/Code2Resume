@@ -6,7 +6,7 @@ class AgentService:
     def __init__(self):
         self.rag = RAGService()
 
-    def ask(self, query: str, username: str, model: str = "llama3.1"):
+    def ask(self, query: str, username: str, model: str = "resume-coder:latest"):
         # Check for resume generation intent
         if "resume" in query.lower() or "cv" in query.lower():
             return self.generate_resume(query, username, model)
@@ -48,7 +48,7 @@ Instructions:
         except Exception as e:
             return f"Error generating response: {str(e)}"
 
-    def ask_stream(self, query: str, username: str, model: str = "llama3.1"):
+    def ask_stream(self, query: str, username: str, model: str = "resume-coder:latest"):
         """Streaming version that yields tokens as they're generated"""
         # Check for resume generation intent
         if "resume" in query.lower() or "cv" in query.lower():

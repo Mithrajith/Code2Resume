@@ -5,94 +5,160 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Register - Code2Resume</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f0f2f5; margin: 0; }
-        .card { background: white; padding: 40px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 100%; max-width: 400px; }
-        h2 { text-align: center; color: #333; margin-bottom: 20px; }
-        .form-group { margin-bottom: 15px; }
-        label { display: block; margin-bottom: 5px; color: #666; }
-        input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
-        button { width: 100%; padding: 12px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; margin-top: 10px; }
-        button:hover { background: #218838; }
-        .link { text-align: center; margin-top: 15px; font-size: 14px; }
-        .error { color: red; text-align: center; margin-bottom: 10px; display: none; }
-        .info { font-size: 12px; color: #888; margin-top: 5px; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); margin: 0; padding: 20px; }
+        .card { background: white; padding: 40px; border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); width: 100%; max-width: 500px; }
+        h2 { text-align: center; color: #333; margin-bottom: 10px; font-size: 28px; }
+        .subtitle { text-align: center; color: #888; margin-bottom: 30px; font-size: 14px; }
+        .form-group { margin-bottom: 18px; }
+        label { display: block; margin-bottom: 6px; color: #555; font-weight: 500; font-size: 14px; }
+        label .required { color: #dc2626; }
+        input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 15px; transition: border-color 0.2s; }
+        input:focus { outline: none; border-color: #667eea; }
+        button { width: 100%; padding: 14px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: 600; margin-top: 10px; transition: transform 0.2s; }
+        button:hover { transform: translateY(-2px); }
+        button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+        .link { text-align: center; margin-top: 20px; font-size: 14px; color: #666; }
+        .link a { color: #667eea; text-decoration: none; font-weight: 600; }
+        .link a:hover { text-decoration: underline; }
+        .error { color: #dc2626; background: #fee2e2; padding: 12px; border-radius: 8px; text-align: center; margin-bottom: 15px; display: none; font-size: 14px; }
+        .info { font-size: 12px; color: #888; margin-top: 5px; line-height: 1.4; }
+        .section-title { font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: #667eea; font-weight: 700; margin: 25px 0 15px 0; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px; }
     </style>
 </head>
 <body>
     <div class="card">
-        <h2>Register</h2>
+        <h2>Create Account</h2>
+        <p class="subtitle">Join Code2Resume and build your AI-powered resume</p>
         <div id="error" class="error"></div>
         <form id="registerForm">
+            <div class="section-title">Account Details</div>
+            
             <div class="form-group">
-                <label>Username</label>
-                <input type="text" id="username" required>
+                <label>Username <span class="required">*</span></label>
+                <input type="text" id="username" required placeholder="johndoe">
             </div>
+            
             <div class="form-group">
-                <label>gmail</label>
-                <input type="text" id="username" required>
+                <label>Password <span class="required">*</span></label>
+                <input type="password" id="password" required placeholder="••••••••">
             </div>
+            
+            <div class="section-title">Contact Information</div>
+            
             <div class="form-group">
-                <label>Password</label>
-                <input type="password" id="password" required>
+                <label>Gmail <span class="required">*</span></label>
+                <input type="email" id="gmail" required placeholder="your.email@gmail.com">
             </div>
+            
             <div class="form-group">
-                <label>GitHub Profile URL</label>
-                <input type="text" id="github_url" placeholder="https://github.com/username" required>
+                <label>Mobile Number <span class="required">*</span></label>
+                <input type="tel" id="mobile_number" required placeholder="+1 234 567 8900">
             </div>
-                        <div class="form-group">
-                <label>Linked Profile URL</label>
-                <input type="text" id="github_url" placeholder="https://github.com/username" required>
-            </div>
+            
+            <div class="section-title">Professional Profiles</div>
+            
             <div class="form-group">
-                <label>Leetcode Profile URL</label>
-                <input type="text" id="github_url" placeholder="https://github.com/username" required>
+                <label>GitHub Profile URL <span class="required">*</span></label>
+                <input type="url" id="github_url" placeholder="https://github.com/username" required>
             </div>
+            
             <div class="form-group">
-                <label>GitHub Personal Access Token</label>
-                <input type="password" id="github_token" required>
-                <div class="info">Used to fetch your repositories. Must be valid.</div>
+                <label>GitHub Personal Access Token <span class="required">*</span></label>
+                <input type="password" id="github_token" required placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
+                <div class="info">Generate at: GitHub Settings → Developer settings → Personal access tokens → Tokens (classic) → Generate new token</div>
             </div>
-            <button type="submit">Register</button>
+            
+            <div class="form-group">
+                <label>LinkedIn Profile ID</label>
+                <input type="text" id="linkedin_id" placeholder="john-doe-123456">
+                <div class="info">Your LinkedIn username (from URL: linkedin.com/in/[username])</div>
+            </div>
+            
+            <div class="form-group">
+                <label>LeetCode Profile ID</label>
+                <input type="text" id="leetcode_id" placeholder="username">
+                <div class="info">Your LeetCode username (from URL: leetcode.com/[username])</div>
+            </div>
+            
+            <button type="submit">Create Account</button>
         </form>
         <div class="link">
-            Already have an account? <a href="/">Login</a>
+            Already have an account? <a href="/">Login here</a>
         </div>
     </div>
 
     <script>
         document.getElementById('registerForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const username = document.getElementById('username').value;
+            
+            // Get all form values
+            const username = document.getElementById('username').value.trim();
             const password = document.getElementById('password').value;
-            const github_url = document.getElementById('github_url').value;
-            const github_token = document.getElementById('github_token').value;
+            const github_url = document.getElementById('github_url').value.trim();
+            const github_token = document.getElementById('github_token').value.trim();
+            const linkedin_id = document.getElementById('linkedin_id').value.trim();
+            const leetcode_id = document.getElementById('leetcode_id').value.trim();
+            const gmail = document.getElementById('gmail').value.trim();
+            const mobile_number = document.getElementById('mobile_number').value.trim();
+            
             const errorDiv = document.getElementById('error');
             const btn = e.target.querySelector('button');
 
+            // Validate required fields
+            if (!username || !password || !github_url || !github_token || !gmail || !mobile_number) {
+                errorDiv.textContent = 'Please fill in all required fields';
+                errorDiv.style.display = 'block';
+                return;
+            }
+
             btn.disabled = true;
-            btn.textContent = "Verifying...";
+            btn.textContent = "Creating Account...";
             errorDiv.style.display = 'none';
 
             try {
+                // Build payload with required fields
+                const payload = {
+                    username: username,
+                    password: password,
+                    github_url: github_url,
+                    github_token: github_token,
+                    gmail: gmail,
+                    mobile_number: mobile_number
+                };
+                
+                // Add optional fields only if they have values
+                if (linkedin_id) {
+                    payload.linkedin_id = linkedin_id;
+                }
+                if (leetcode_id) {
+                    payload.leetcode_id = leetcode_id;
+                }
+
+                console.log('Sending registration payload:', { ...payload, github_token: '***hidden***', password: '***hidden***' });
+
                 const response = await fetch('/auth/register', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password, github_url, github_token })
+                    body: JSON.stringify(payload)
                 });
 
+                const data = await response.json();
+
                 if (!response.ok) {
-                    const data = await response.json();
                     throw new Error(data.detail || 'Registration failed');
                 }
 
-                const data = await response.json();
+                // Save token and redirect
                 localStorage.setItem('token', data.access_token);
+                console.log('Registration successful, redirecting to dashboard...');
                 window.location.href = '/dashboard';
+                
             } catch (err) {
+                console.error('Registration error:', err);
                 errorDiv.textContent = err.message;
                 errorDiv.style.display = 'block';
                 btn.disabled = false;
-                btn.textContent = "Register";
+                btn.textContent = "Create Account";
             }
         });
     </script>

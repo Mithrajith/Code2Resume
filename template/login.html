@@ -5,66 +5,92 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - Code2Resume</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f0f2f5; margin: 0; }
-        .card { background: white; padding: 40px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 100%; max-width: 400px; }
-        h2 { text-align: center; color: #333; margin-bottom: 20px; }
-        .form-group { margin-bottom: 15px; }
-        label { display: block; margin-bottom: 5px; color: #666; }
-        input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
-        button { width: 100%; padding: 12px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; margin-top: 10px; }
-        button:hover { background: #0056b3; }
-        .link { text-align: center; margin-top: 15px; font-size: 14px; }
-        .error { color: red; text-align: center; margin-bottom: 10px; display: none; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); margin: 0; padding: 20px; }
+        .card { background: white; padding: 40px; border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); width: 100%; max-width: 420px; }
+        h2 { text-align: center; color: #333; margin-bottom: 10px; font-size: 28px; }
+        .subtitle { text-align: center; color: #888; margin-bottom: 30px; font-size: 14px; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 6px; color: #555; font-weight: 500; font-size: 14px; }
+        input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 15px; transition: border-color 0.2s; }
+        input:focus { outline: none; border-color: #667eea; }
+        button { width: 100%; padding: 14px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: 600; margin-top: 10px; transition: transform 0.2s; }
+        button:hover { transform: translateY(-2px); }
+        button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+        .link { text-align: center; margin-top: 20px; font-size: 14px; color: #666; }
+        .link a { color: #667eea; text-decoration: none; font-weight: 600; }
+        .link a:hover { text-decoration: underline; }
+        .error { color: #dc2626; background: #fee2e2; padding: 12px; border-radius: 8px; text-align: center; margin-bottom: 15px; display: none; font-size: 14px; }
     </style>
 </head>
 <body>
     <div class="card">
-        <h2>Login</h2>
+        <h2>Welcome Back</h2>
+        <p class="subtitle">Login to your Code2Resume account</p>
         <div id="error" class="error"></div>
         <form id="loginForm">
             <div class="form-group">
                 <label>Username</label>
-                <input type="text" id="username" required>
+                <input type="text" id="username" required placeholder="Enter your username">
             </div>
             <div class="form-group">
                 <label>Password</label>
-                <input type="password" id="password" required>
+                <input type="password" id="password" required placeholder="Enter your password">
             </div>
             <button type="submit">Login</button>
         </form>
         <div class="link">
-            Don't have an account? <a href="/register">Register</a>
+            Don't have an account? <a href="/register">Create one here</a>
         </div>
     </div>
 
     <script>
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const username = document.getElementById('username').value;
+            
+            const username = document.getElementById('username').value.trim();
             const password = document.getElementById('password').value;
             const errorDiv = document.getElementById('error');
+            const btn = e.target.querySelector('button');
+
+            // Validate inputs
+            if (!username || !password) {
+                errorDiv.textContent = 'Please enter both username and password';
+                errorDiv.style.display = 'block';
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = "Logging in...";
+            errorDiv.style.display = 'none';
 
             const formData = new FormData();
             formData.append('username', username);
             formData.append('password', password);
 
             try {
+                console.log('Attempting login for user:', username);
+                
                 const response = await fetch('/auth/login', {
                     method: 'POST',
                     body: formData
                 });
 
+                const data = await response.json();
+
                 if (!response.ok) {
-                    const data = await response.json();
                     throw new Error(data.detail || 'Login failed');
                 }
 
-                const data = await response.json();
+                console.log('Login successful, saving token and redirecting...');
                 localStorage.setItem('token', data.access_token);
                 window.location.href = '/dashboard';
+                
             } catch (err) {
+                console.error('Login error:', err);
                 errorDiv.textContent = err.message;
                 errorDiv.style.display = 'block';
+                btn.disabled = false;
+                btn.textContent = "Login";
             }
         });
     </script>

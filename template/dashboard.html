@@ -301,6 +301,7 @@
         <h1>Code2Resume</h1>
         <nav>
             <span id="usernameDisplay"></span>
+            <a href="/resumes.html">My Resumes</a>
             <a href="/settings">Settings</a>
             <a href="#" onclick="logout()">Logout</a>
         </nav>
@@ -519,7 +520,7 @@
             const status = document.getElementById('status');
             
             btn.disabled = true;
-            status.textContent = "Fetching repos...";
+            status.textContent = "Starting analysis...";
             
             try {
                 const response = await fetch('/analyze', {
@@ -531,17 +532,73 @@
                     body: JSON.stringify({}) 
                 });
                 
-                if (!response.ok) throw new Error('Analysis failed');
+                if (!response.ok) throw new Error('Failed to start analysis');
                 
                 const data = await response.json();
-                status.textContent = `Success! Analyzed ${data.repos.length} repos.`;
-                status.style.color = "#059669";
+                const jobId = data.job_id;
+                
+                status.textContent = "Analysis running in background... You can navigate freely!";
+                status.style.color = "#2563eb"; // Blue
+                
+                // Poll for status
+                pollAnalysisStatus(jobId, status, btn);
+                
             } catch (e) {
                 status.textContent = "Error: " + e.message;
                 status.style.color = "#dc2626";
-            } finally {
                 btn.disabled = false;
             }
+        }
+
+        async function pollAnalysisStatus(jobId, statusElement, btn) {
+            let attempts = 0;
+            const maxAttempts = 120; // 10 minutes max (5 sec intervals)
+            
+            const checkStatus = async () => {
+                try {
+                    const response = await fetch(`/analysis-status/${jobId}`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    
+                    if (!response.ok) throw new Error('Status check failed');
+                    
+                    const data = await response.json();
+                    
+                    if (data.status === 'processing') {
+                        statusElement.textContent = data.progress || 'Processing...';
+                        statusElement.style.color = "#2563eb";
+                        
+                        attempts++;
+                        if (attempts < maxAttempts) {
+                            setTimeout(checkStatus, 5000); // Check every 5 seconds
+                        } else {
+                            statusElement.textContent = "Analysis is taking longer than expected. Check back later.";
+                            statusElement.style.color = "#f59e0b";
+                            btn.disabled = false;
+                        }
+                    } else if (data.status === 'completed') {
+                        const result = data.result;
+                        if (result.type === 'profile') {
+                            statusElement.textContent = `✅ Success! Analyzed ${result.repos.length} repositories.`;
+                        } else {
+                            statusElement.textContent = `✅ Success! Analyzed ${result.repo_name}.`;
+                        }
+                        statusElement.style.color = "#059669";
+                        btn.disabled = false;
+                    } else if (data.status === 'failed') {
+                        statusElement.textContent = `❌ Error: ${data.error}`;
+                        statusElement.style.color = "#dc2626";
+                        btn.disabled = false;
+                    }
+                } catch (e) {
+                    statusElement.textContent = "Error checking status: " + e.message;
+                    statusElement.style.color = "#dc2626";
+                    btn.disabled = false;
+                }
+            };
+            
+            // Start polling after 2 seconds
+            setTimeout(checkStatus, 2000);
         }
 
         async function askAgent() {

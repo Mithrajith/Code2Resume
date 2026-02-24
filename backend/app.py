@@ -33,9 +33,15 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 app = FastAPI()
 
+# Job tracking for background tasks
+analysis_jobs = {}
+
 # Initialize Services
 rag_service = RAGService()
 agent_service = AgentService()
+
+# Job tracking for background tasks
+analysis_jobs = {}
 
 # Enable CORS
 app.add_middleware(
@@ -56,10 +62,26 @@ class UserCreate(BaseModel):
     password: str
     github_url: str
     github_token: str
+    linkedin_id: Optional[str] = None
+    leetcode_id: Optional[str] = None
+    gmail: Optional[str] = None
+    mobile_number: Optional[str] = None
+
+class UserUpdate(BaseModel):
+    github_url: Optional[str] = None
+    linkedin_id: Optional[str] = None
+    leetcode_id: Optional[str] = None
+    gmail: Optional[str] = None
+    mobile_number: Optional[str] = None
+    password: Optional[str] = None
 
 class UserResponse(BaseModel):
     username: str
     github_url: str
+    linkedin_id: Optional[str] = None
+    leetcode_id: Optional[str] = None
+    gmail: Optional[str] = None
+    mobile_number: Optional[str] = None
 
 import bcrypt
 
@@ -118,7 +140,11 @@ async def register(user: UserCreate, db: Session = Depends(get_db)):
         username=user.username,
         hashed_password=hashed_password,
         github_url=user.github_url,
-        github_token=user.github_token
+        github_token=user.github_token,
+        linkedin_id=user.linkedin_id,
+        leetcode_id=user.leetcode_id,
+        gmail=user.gmail,
+        mobile_number=user.mobile_number
     )
     db.add(new_user)
     db.commit()
@@ -144,7 +170,43 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = 
 
 @app.get("/auth/me", response_model=UserResponse)
 async def read_users_me(current_user: User = Depends(get_current_user)):
-    return UserResponse(username=current_user.username, github_url=current_user.github_url)
+    return UserResponse(
+        username=current_user.username,
+        github_url=current_user.github_url,
+        linkedin_id=current_user.linkedin_id,
+        leetcode_id=current_user.leetcode_id,
+        gmail=current_user.gmail,
+        mobile_number=current_user.mobile_number
+    )
+
+@app.put("/auth/me", response_model=UserResponse)
+async def update_user(user_update: UserUpdate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Update user details (except GitHub token which is read-only)"""
+    # Update fields if provided
+    if user_update.github_url is not None:
+        current_user.github_url = user_update.github_url
+    if user_update.linkedin_id is not None:
+        current_user.linkedin_id = user_update.linkedin_id
+    if user_update.leetcode_id is not None:
+        current_user.leetcode_id = user_update.leetcode_id
+    if user_update.gmail is not None:
+        current_user.gmail = user_update.gmail
+    if user_update.mobile_number is not None:
+        current_user.mobile_number = user_update.mobile_number
+    if user_update.password is not None:
+        current_user.hashed_password = get_password_hash(user_update.password)
+    
+    db.commit()
+    db.refresh(current_user)
+    
+    return UserResponse(
+        username=current_user.username,
+        github_url=current_user.github_url,
+        linkedin_id=current_user.linkedin_id,
+        leetcode_id=current_user.leetcode_id,
+        gmail=current_user.gmail,
+        mobile_number=current_user.mobile_number
+    )
 
 # --- Application Logic ---
 
@@ -157,6 +219,13 @@ class AskRequest(BaseModel):
 class ResumeRequest(BaseModel):
     query: str
     domain: Optional[str] = None
+
+class JobStatus(BaseModel):
+    job_id: str
+    status: str  # 'processing', 'completed', 'failed'
+    progress: Optional[str] = None
+    result: Optional[Dict[str, Any]] = None
+    error: Optional[str] = None
 
 @app.post("/ask")
 async def ask_agent(request: AskRequest, current_user: User = Depends(get_current_user)):
@@ -181,7 +250,7 @@ async def ask_agent_stream(request: AskRequest, current_user: User = Depends(get
 @app.post("/generate-resume")
 async def generate_resume_file(request: ResumeRequest, current_user: User = Depends(get_current_user)):
     """
-    Generates a LaTeX resume file and saves it to tmp/ directory
+    Generates a LaTeX resume file and saves it to resumes/ directory
     Returns the filename for download
     """
     try:
@@ -189,21 +258,21 @@ async def generate_resume_file(request: ResumeRequest, current_user: User = Depe
         latex_content = agent_service.generate_resume(
             request.query, 
             username=current_user.username, 
-            model="llama3.1"
+            model="resume-coder:latest"
         )
         
         if latex_content.startswith("Error"):
             raise HTTPException(status_code=500, detail=latex_content)
         
-        # Create tmp directory if it doesn't exist
-        tmp_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "tmp")
-        if not os.path.exists(tmp_dir):
-            os.makedirs(tmp_dir)
+        # Create resumes directory if it doesn't exist
+        resumes_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "resumes")
+        if not os.path.exists(resumes_dir):
+            os.makedirs(resumes_dir)
         
         # Generate unique filename
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"resume_{current_user.username}_{timestamp}.tex"
-        filepath = os.path.join(tmp_dir, filename)
+        filepath = os.path.join(resumes_dir, filename)
         
         # Save LaTeX content to file
         with open(filepath, "w", encoding="utf-8") as f:
@@ -253,6 +322,132 @@ async def download_file(filename: str, current_user: User = Depends(get_current_
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/resumes")
+async def list_resumes(current_user: User = Depends(get_current_user)):
+    """
+    List all resumes generated by the current user
+    """
+    try:
+        # Check both tmp and resumes directories
+        base_dir = os.path.dirname(os.path.dirname(__file__))
+        directories = [
+            os.path.join(base_dir, "tmp"),
+            os.path.join(base_dir, "resumes")
+        ]
+        
+        user_files = []
+        
+        for directory in directories:
+            if not os.path.exists(directory):
+                continue
+            
+            # Get all files for this user
+            for filename in os.listdir(directory):
+                if filename.startswith(f"resume_{current_user.username}_") and filename.endswith(".tex"):
+                    filepath = os.path.join(directory, filename)
+                    stats = os.stat(filepath)
+                    
+                    # Try to extract query from filename (after timestamp)
+                    # Format: resume_username_timestamp_query.tex
+                    parts = filename[:-4].split('_', 3)
+                    query = parts[3].replace('_', ' ') if len(parts) > 3 else "Resume"
+                    
+                    user_files.append({
+                        "filename": filename,
+                        "query": query,
+                        "created_at": datetime.fromtimestamp(stats.st_ctime).isoformat(),
+                        "size": stats.st_size,
+                        "directory": directory
+                    })
+        
+        # Sort by creation time (newest first)
+        user_files.sort(key=lambda x: x['created_at'], reverse=True)
+        
+        return user_files
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/download-resume/{filename}")
+async def download_resume(filename: str, current_user: User = Depends(get_current_user)):
+    """
+    Download a specific resume file
+    """
+    try:
+        # Security check
+        if ".." in filename or "/" in filename:
+            raise HTTPException(status_code=400, detail="Invalid filename")
+        
+        # Verify file belongs to this user
+        if not filename.startswith(f"resume_{current_user.username}_"):
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        # Check both tmp and resumes directories
+        base_dir = os.path.dirname(os.path.dirname(__file__))
+        directories = [
+            os.path.join(base_dir, "tmp"),
+            os.path.join(base_dir, "resumes")
+        ]
+        
+        filepath = None
+        for directory in directories:
+            potential_path = os.path.join(directory, filename)
+            if os.path.exists(potential_path):
+                filepath = potential_path
+                break
+        
+        if not filepath:
+            raise HTTPException(status_code=404, detail="File not found")
+        
+        return FileResponse(
+            path=filepath,
+            filename=filename,
+            media_type="application/x-tex",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/delete-resume/{filename}")
+async def delete_resume(filename: str, current_user: User = Depends(get_current_user)):
+    """
+    Delete a specific resume file
+    """
+    try:
+        # Security check
+        if ".." in filename or "/" in filename:
+            raise HTTPException(status_code=400, detail="Invalid filename")
+        
+        # Verify file belongs to this user
+        if not filename.startswith(f"resume_{current_user.username}_"):
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        # Check both tmp and resumes directories
+        base_dir = os.path.dirname(os.path.dirname(__file__))
+        directories = [
+            os.path.join(base_dir, "tmp"),
+            os.path.join(base_dir, "resumes")
+        ]
+        
+        filepath = None
+        for directory in directories:
+            potential_path = os.path.join(directory, filename)
+            if os.path.exists(potential_path):
+                filepath = potential_path
+                break
+        
+        if not filepath:
+            raise HTTPException(status_code=404, detail="File not found")
+        
+        os.remove(filepath)
+        
+        return {"success": True, "message": "Resume deleted successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 async def fetch_github_data(owner: str, repo: str, token: str):
     headers = {}
     if token:
@@ -295,9 +490,17 @@ async def fetch_github_data(owner: str, repo: str, token: str):
 
 async def run_llm(prompt: str, context_name: str):
     # Strategy: Prioritize GPU. If VRAM (4GB) is insufficient, offload to CPU/RAM.
-    # Using llama3.1 (8B) which provides better analysis but will require mixed GPU/CPU execution on RTX 2050.
-    model = "llama3.1:8b" 
+    # Using resume-coder:latest (fine-tuned) optimized for this app.
+    model = "resume-coder:latest" 
     try:
+        # Test Ollama connection first
+        try:
+            ollama.list()
+        except Exception as conn_error:
+            print(f"Ollama connection failed: {conn_error}")
+            print("Please start Ollama with: ollama serve")
+            return {"raw_response": json.dumps({"error": "Ollama service is not running. Please start it with: ollama serve"}), "repo_name": context_name}
+        
         # Force GPU usage with num_gpu option
         response = ollama.chat(model=model, messages=[
             {'role': 'user', 'content': prompt}
@@ -309,7 +512,9 @@ async def run_llm(prompt: str, context_name: str):
         if e.status_code == 404:
             print(f"Model {model} not found. Attempting to pull...")
             try:
+                print(f"Pulling {model}... This may take a few minutes.")
                 ollama.pull(model)
+                print(f"Model {model} pulled successfully!")
                 # Retry once
                 response = ollama.chat(model=model, messages=[
                     {'role': 'user', 'content': prompt}
@@ -322,43 +527,55 @@ async def run_llm(prompt: str, context_name: str):
         return {"raw_response": json.dumps({"error": str(e)}), "repo_name": context_name}
     except Exception as e:
         print(f"Ollama error: {e}")
+        return {"raw_response": json.dumps({"error": f"Ollama connection failed: {str(e)}"}), "repo_name": context_name}
+
 async def analyze_single_repo(owner: str, repo: str, token: str = None):
     repo_data, languages, readme = await fetch_github_data(owner, repo, token)
     if not repo_data:
         raise HTTPException(status_code=404, detail="Repository not found or private")
 
+    # Use full README content for better analysis
+    readme_content = readme[:10000] if readme else "No README available"
+    repo_description = repo_data.get('description', 'No description provided')
+    
     prompt = f"""
-    Analyze the following GitHub repository based on its README content.
-    
-    Repository: {repo_data.get('name')}
-    
-    README Content (truncated):
-    {readme[:6000]}
-    
-    (Languages detected by GitHub: {', '.join(languages.keys())})
-    
-    Please extract the following details strictly from the README:
-    1. A comprehensive description of what the project does.
-    2. The detailed tech stack (languages, frameworks, libraries, tools).
-    3. Key features or capabilities of the project.
-    4. The Project Domain - MUST be ONE of these EXACT values:
-       - "Machine Learning" (AI/ML projects, neural networks, computer vision, NLP)
-       - "Data Science" (data analysis, visualization, analytics, data pipelines)
-       - "Full Stack" (projects with both frontend and backend)
-       - "Frontend" (UI/UX, web design, client-side only)
-       - "Backend" (APIs, servers, databases, server-side logic)
-       - "Mobile App" (Android, iOS, React Native, Flutter)
-       - "DevOps" (CI/CD, infrastructure, Docker, Kubernetes)
-       - "Other" (if none of the above fit)
-    
-    Format the output as a valid JSON object with keys: 
-    - "what_it_does" (string)
-    - "tech_stack" (list of strings)
-    - "key_features" (list of strings)
-    - "domain" (string - one of the exact values above)
-    
-    Do not include any markdown formatting like ```json. Just the raw JSON string.
-    """
+You are a technical analyst. Analyze this GitHub repository and extract structured information.
+
+Repository: {repo_data.get('name')}
+GitHub Description: {repo_description}
+Languages: {', '.join(languages.keys())}
+
+Full README Content:
+{readme_content}
+
+Extract and provide:
+1. **what_it_does**: A clear 2-3 sentence description of the project's purpose and functionality
+2. **tech_stack**: Complete list of technologies (languages, frameworks, libraries, databases, tools)
+3. **key_features**: 3-5 main features or capabilities
+4. **domain**: Choose EXACTLY ONE from:
+   - "Machine Learning" (AI, ML, neural networks, computer vision, NLP, deep learning)
+   - "Data Science" (data analysis, visualization, analytics, data pipelines, statistics)
+   - "Full Stack" (both frontend and backend components)
+   - "Frontend" (UI, UX, web design, client-side, React, Vue, Angular)
+   - "Backend" (APIs, servers, databases, microservices, server-side)
+   - "Mobile App" (Android, iOS, React Native, Flutter, mobile development)
+   - "DevOps" (CI/CD, Docker, Kubernetes, infrastructure, cloud, automation)
+   - "Other" (if none above fit)
+
+IMPORTANT:
+- Analyze the README thoroughly to extract accurate information
+- Infer tech stack from dependencies, code examples, and setup instructions
+- Determine domain based on project purpose and technologies used
+- If README is minimal, infer from repo description and languages
+
+Return ONLY valid JSON (no markdown, no code blocks):
+{{
+  "what_it_does": "description here",
+  "tech_stack": ["tech1", "tech2"],
+  "key_features": ["feature1", "feature2"],
+  "domain": "Domain Name"
+}}
+"""
     
     return await run_llm(prompt, repo_data.get('name'))
 
@@ -463,44 +680,70 @@ async def analyze_user_profile(owner: str, token: str, username: str):
     for i in range(0, len(valid_results), batch_size):
         batch = valid_results[i:i + batch_size]
         
-        prompt = f"Analyze the following {len(batch)} GitHub repositories for user '{owner}'.\n\n"
+        prompt = f"You are a technical analyst. Analyze these {len(batch)} GitHub repositories for user '{owner}'.\n\n"
         
         for j, (repo_data, languages, readme) in enumerate(batch):
+            readme_snippet = readme[:2000] if readme else "No README"
             prompt += f"""
-            --- Repository {j+1} ---
-            Name: {repo_data.get('name')}
-            Description: {repo_data.get('description')}
-            Languages: {', '.join(languages.keys())}
-            README (truncated): {readme[:1000]}
-            ------------------------
-            """
+=== Repository {j+1} ===
+Name: {repo_data.get('name')}
+Description: {repo_data.get('description', 'None')}
+Languages: {', '.join(languages.keys())}
+Stars: {repo_data.get('stargazers_count', 0)}
+
+README Content:
+{readme_snippet}
+========================
+
+"""
         
         prompt += """
-        For EACH repository, provide:
-        1. Name
-        2. A concise explanation of what it does (based on README).
-        3. The tech stack used.
-        4. Key features (max 3).
-        5. The Project Domain - MUST be ONE of these EXACT values:
-           - "Machine Learning" (AI/ML projects, neural networks, computer vision, NLP)
-           - "Data Science" (data analysis, visualization, analytics, data pipelines)
-           - "Full Stack" (projects with both frontend and backend)
-           - "Frontend" (UI/UX, web design, client-side only)
-           - "Backend" (APIs, servers, databases, server-side logic)
-           - "Mobile App" (Android, iOS, React Native, Flutter)
-           - "DevOps" (CI/CD, infrastructure, Docker, Kubernetes)
-           - "Other" (if none of the above fit)
+For EACH repository, analyze the README and extract:
 
-        Format the output as a valid JSON LIST of objects. 
-        Example: [{"name": "repo1", "what_it_does": "...", "tech_stack": ["..."], "key_features": ["..."], "domain": "Machine Learning"}, ...]
-        Do not include any markdown formatting. Just the raw JSON string.
-        """
+1. **name**: Repository name
+2. **what_it_does**: Clear description of purpose (2-3 sentences, infer from README, description, and languages)
+3. **tech_stack**: List ALL technologies found (languages, frameworks, libraries, databases, tools)
+4. **key_features**: 3-5 main features or capabilities
+5. **domain**: Choose EXACTLY ONE:
+   - "Machine Learning" (AI, ML, neural networks, computer vision, NLP, deep learning, models)
+   - "Data Science" (data analysis, visualization, analytics, data pipelines, statistics, BI)
+   - "Full Stack" (both frontend AND backend components)
+   - "Frontend" (UI, UX, web design, client-side, React, Vue, Angular, HTML/CSS)
+   - "Backend" (APIs, servers, databases, microservices, server-side, REST, GraphQL)
+   - "Mobile App" (Android, iOS, React Native, Flutter, mobile development)
+   - "DevOps" (CI/CD, Docker, Kubernetes, infrastructure, cloud, automation, deployment)
+   - "Other" (if none fit)
+
+Guidelines:
+- Read README thoroughly for accurate tech stack
+- Infer from setup instructions, dependencies, imports
+- If README is minimal, use repo description and primary language
+- Domain should match project's PRIMARY purpose
+
+Return ONLY a valid JSON array (no markdown, no ```json):
+[{"name": "repo1", "what_it_does": "...", "tech_stack": [...], "key_features": [...], "domain": "Domain"}, ...]
+"""
         
         print(f"Debug: Processing batch {i//batch_size + 1}...")
         llm_response = await run_llm(prompt, f"{owner}'s Profile Batch {i}")
         
+        # Check if LLM response is valid
+        if not llm_response or 'raw_response' not in llm_response:
+            print(f"Batch {i} failed: No response from LLM")
+            continue
+            
         try:
             raw = llm_response['raw_response']
+            
+            # Check if response contains an error
+            try:
+                error_check = json.loads(raw)
+                if isinstance(error_check, dict) and 'error' in error_check:
+                    print(f"Batch {i} failed with error: {error_check['error']}")
+                    continue
+            except:
+                pass
+            
             # Try to find a JSON list in the response using regex
             import re
             match = re.search(r'\[.*\]', raw, re.DOTALL)
@@ -518,8 +761,9 @@ async def analyze_user_profile(owner: str, token: str, username: str):
                 
         except Exception as e:
             print(f"Failed to parse batch {i}. Error: {e}")
-            print(f"Raw response snippet: {llm_response['raw_response'][:200]}...")
-            pass
+            if llm_response and 'raw_response' in llm_response:
+                print(f"Raw response snippet: {llm_response['raw_response'][:200]}...")
+            continue
 
     # Save to dataset
     if final_repos:
@@ -537,16 +781,15 @@ async def analyze_user_profile(owner: str, token: str, username: str):
         "repos": final_repos
     } 
 
-
-@app.post("/analyze")
-async def analyze_repo(request: RepoRequest, current_user: User = Depends(get_current_user)):
+async def run_analysis_job(job_id: str, target_url: str, github_token: str, username: str):
+    """Background task to run GitHub analysis"""
     try:
-        # Use user's GitHub URL if not provided
-        target_url = request.url or current_user.github_url
-        if not target_url:
-             raise HTTPException(status_code=400, detail="No GitHub URL provided or found in profile")
-
-        print(f"Received URL: '{target_url}'")
+        analysis_jobs[job_id] = {
+            'status': 'processing',
+            'progress': 'Starting analysis...',
+            'result': None,
+            'error': None
+        }
         
         clean_url = target_url.strip()
         
@@ -565,54 +808,106 @@ async def analyze_repo(request: RepoRequest, current_user: User = Depends(get_cu
         parts = [p for p in clean_url.split("/") if p]
         
         if len(parts) == 0:
-             raise HTTPException(status_code=400, detail="Invalid URL")
+            raise ValueError("Invalid URL")
         
         owner = parts[0]
         if len(parts) == 1:
             # User Profile Mode
-            print(f"Debug: Analyzing profile for owner={owner}")
-            return await analyze_user_profile(owner, current_user.github_token, current_user.username)
+            analysis_jobs[job_id]['progress'] = f'Analyzing GitHub profile for {owner}...'
+            result = await analyze_user_profile(owner, github_token, username)
         else:
             # Single Repo Mode
             repo = parts[1]
             if repo.endswith(".git"):
                 repo = repo[:-4]
-            print(f"Debug: Analyzing repo owner={owner}, repo={repo}")
-            result = await analyze_single_repo(owner, repo, current_user.github_token)
+            analysis_jobs[job_id]['progress'] = f'Analyzing repository {owner}/{repo}...'
+            result = await analyze_single_repo(owner, repo, github_token)
             
             # Save single repo to dataset
             try:
                 parsed = json.loads(result['raw_response'])
-                # Add name if missing
                 if 'name' not in parsed:
                     parsed['name'] = result['repo_name']
-                save_to_dataset([parsed], current_user.username)
+                save_to_dataset([parsed], username)
                 
-                # Add to RAG
                 try:
-                    rag_service.add_repo_data(parsed, current_user.username)
+                    rag_service.add_repo_data(parsed, username)
                 except Exception as e:
-                    print(f"Failed to add {result['repo_name']} to RAG: {e}")
+                    print(f"Failed to add repo to RAG: {e}")
                 
-                return {
+                result = {
                     "type": "repo",
                     "repo_name": result['repo_name'],
                     "data": parsed
                 }
-            except:
-                return {
-                    "type": "repo",
-                    "repo_name": result['repo_name'],
-                    "raw_response": result['raw_response']
-                }
+            except Exception as e:
+                print(f"Failed to parse single repo: {e}")
+        
+        analysis_jobs[job_id] = {
+            'status': 'completed',
+            'progress': 'Analysis complete!',
+            'result': result,
+            'error': None
+        }
+        
+    except Exception as e:
+        import traceback
+        print(f"Error in analysis job {job_id}: {e}")
+        traceback.print_exc()
+        analysis_jobs[job_id] = {
+            'status': 'failed',
+            'progress': 'Analysis failed',
+            'result': None,
+            'error': str(e)
+        }
+
+@app.post("/analyze")
+async def analyze_repo(request: RepoRequest, background_tasks: BackgroundTasks, current_user: User = Depends(get_current_user)):
+    """Start GitHub analysis as background task"""
+    try:
+        # Use user's GitHub URL if not provided
+        target_url = request.url or current_user.github_url
+        if not target_url:
+             raise HTTPException(status_code=400, detail="No GitHub URL provided or found in profile")
+
+        # Generate unique job ID
+        job_id = f"{current_user.username}_{int(datetime.now().timestamp() * 1000)}"
+        
+        # Start background task
+        background_tasks.add_task(
+            run_analysis_job,
+            job_id,
+            target_url,
+            current_user.github_token,
+            current_user.username
+        )
+        
+        return {
+            "job_id": job_id,
+            "status": "started",
+            "message": "Analysis started in background. Check /analysis-status/{job_id} for progress."
+        }
 
     except HTTPException:
         raise
     except Exception as e:
         print(f"Error: {e}")
-        import traceback
-        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/analysis-status/{job_id}")
+async def get_analysis_status(job_id: str, current_user: User = Depends(get_current_user)):
+    """Check the status of a background analysis job"""
+    if job_id not in analysis_jobs:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    job_data = analysis_jobs[job_id]
+    return {
+        "job_id": job_id,
+        "status": job_data['status'],
+        "progress": job_data['progress'],
+        "result": job_data['result'],
+        "error": job_data['error']
+    }
 
 @app.post("/fine-tune")
 async def trigger_fine_tuning(current_user: User = Depends(get_current_user), background_tasks: BackgroundTasks = BackgroundTasks()):
@@ -678,6 +973,14 @@ async def read_dashboard():
 async def read_settings():
     return FileResponse("template/settings.html")
 
+@app.get("/resumes.html", response_class=HTMLResponse)
+async def read_resumes():
+    return FileResponse("template/resumes.html")
+
+@app.get("/test-auth", response_class=HTMLResponse)
+async def test_auth_page():
+    return FileResponse("template/test_auth.html")
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8001)
