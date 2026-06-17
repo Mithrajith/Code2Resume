@@ -3,16 +3,8 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { getCurrentUser } from '../../api/auth';
 import {
-  LayoutDashboard,
-  FileText,
-  Settings,
-  LogOut,
-  Menu,
-  X,
-  Github,
-  ChevronDown,
-  Sparkles,
-  Bot
+  LayoutDashboard, FileText, Settings, LogOut, Menu, X,
+  Github, ChevronDown, Sparkles, Bot
 } from 'lucide-react';
 
 export default function Layout({ children }) {
@@ -34,14 +26,9 @@ export default function Layout({ children }) {
     }
   }, [setUser]);
 
-  useEffect(() => {
-    fetchUser();
-  }, [fetchUser]);
+  useEffect(() => { fetchUser(); }, [fetchUser]);
 
-  const handleLogout = () => {
-    logout();
-    navigate('/');
-  };
+  const handleLogout = () => { logout(); navigate('/'); };
 
   const navLinks = [
     { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -50,194 +37,115 @@ export default function Layout({ children }) {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      {/* Desktop Sidebar */}
-      <aside
-        className={`hidden lg:flex flex-col bg-white border-r border-gray-200 transition-all duration-300 ${
-          sidebarOpen ? 'w-64' : 'w-20'
-        }`}
-      >
-        {/* Logo */}
-        <div className="h-16 flex items-center justify-between px-4 border-b border-gray-100">
-          <Link to="/dashboard" className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center">
-              <Sparkles size={20} className="text-white" />
-            </div>
-            {sidebarOpen && (
-              <span className="text-xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                Code2Resume
-              </span>
-            )}
+    <div className="layout-container">
+      <aside className={`sidebar ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
+        <div className="sidebar-header">
+          <Link to="/dashboard" className="sidebar-logo">
+            <div className="sidebar-logo-icon"><Sparkles size={20} /></div>
+            {sidebarOpen && <span className="sidebar-logo-text">Code2Resume</span>}
           </Link>
-          <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-          >
+          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="icon-btn">
             <Menu size={18} />
           </button>
         </div>
 
-        {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-1">
+        <nav className="sidebar-nav">
           {navLinks.map(({ path, label, icon: NavIcon }) => (
             <Link
-              key={path}
-              to={path}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${
-                location.pathname === path
-                  ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-md'
-                  : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-              }`}
+              key={path} to={path}
+              className={`sidebar-nav-link ${location.pathname === path ? 'active' : ''}`}
             >
-              {React.createElement(NavIcon, { size: 20 })}
+              <NavIcon size={20} />
               {sidebarOpen && <span className="font-medium">{label}</span>}
             </Link>
           ))}
         </nav>
 
-        {/* User Card */}
-        <div className="p-4 border-t border-gray-100">
+        <div className="sidebar-footer">
           <div
-            className={`flex items-center gap-3 p-3 rounded-xl bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors ${
-              !sidebarOpen ? 'justify-center' : ''
-            }`}
+            className={`sidebar-user ${!sidebarOpen ? 'collapsed' : ''}`}
             onClick={() => setUserMenuOpen(!userMenuOpen)}
           >
-            <div className="w-9 h-9 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-semibold text-sm">
-              {user?.username?.charAt(0).toUpperCase() || 'U'}
-            </div>
+            <div className="avatar">{user?.username?.charAt(0).toUpperCase() || 'U'}</div>
             {sidebarOpen && (
               <>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">
-                    {user?.username || 'User'}
-                  </p>
-                  <p className="text-xs text-gray-500 truncate">
-                    {user?.github_url?.split('/').pop() || 'GitHub'}
-                  </p>
+                <div className="sidebar-user-info">
+                  <p className="text-sm font-medium text-gray-900">{user?.username || 'User'}</p>
+                  <p className="text-xs text-gray-500">{user?.github_url?.split('/').pop() || 'GitHub'}</p>
                 </div>
-                <ChevronDown
-                  size={16}
-                  className={`text-gray-400 transition-transform ${userMenuOpen ? 'rotate-180' : ''}`}
-                />
+                <ChevronDown size={16} className={`text-gray-400 transition-transform duration-200 ${userMenuOpen ? 'rotate-180' : ''}`} />
               </>
             )}
           </div>
 
-          {/* User Dropdown */}
           {userMenuOpen && sidebarOpen && (
-            <div className="mt-2 py-2 bg-white rounded-xl shadow-lg border border-gray-100">
-              <Link
-                to="/settings"
-                className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                onClick={() => setUserMenuOpen(false)}
-              >
-                <Settings size={16} />
-                Settings
+            <div className="sidebar-dropdown">
+              <Link to="/settings" onClick={() => setUserMenuOpen(false)}>
+                <Settings size={16} /> Settings
               </Link>
-              <button
-                onClick={handleLogout}
-                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-              >
-                <LogOut size={16} />
-                Logout
+              <button onClick={handleLogout}>
+                <LogOut size={16} /> Logout
               </button>
             </div>
           )}
         </div>
       </aside>
 
-      {/* Mobile Sidebar Overlay */}
       {mobileMenuOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <div
-            className="absolute inset-0 bg-black/50"
-            onClick={() => setMobileMenuOpen(false)}
-          />
-          <aside className="absolute left-0 top-0 bottom-0 w-64 bg-white shadow-xl">
-            <div className="h-16 flex items-center justify-between px-4 border-b border-gray-100">
-              <Link to="/dashboard" className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center">
-                  <Sparkles size={20} className="text-white" />
-                </div>
-                <span className="text-xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                  Code2Resume
-                </span>
+        <div className="mobile-overlay">
+          <div className="mobile-overlay-bg" onClick={() => setMobileMenuOpen(false)} />
+          <aside className="mobile-sidebar animate-slide-in-left">
+            <div className="sidebar-header">
+              <Link to="/dashboard" className="sidebar-logo">
+                <div className="sidebar-logo-icon"><Sparkles size={20} /></div>
+                <span className="sidebar-logo-text">Code2Resume</span>
               </Link>
-              <button
-                onClick={() => setMobileMenuOpen(false)}
-                className="p-2 text-gray-400 hover:text-gray-600"
-              >
+              <button onClick={() => setMobileMenuOpen(false)} className="icon-btn">
                 <X size={20} />
               </button>
             </div>
 
-            <nav className="p-4 space-y-1">
+            <nav className="sidebar-nav">
               {navLinks.map(({ path, label, icon: NavIcon }) => (
-                <Link
-                  key={path}
-                  to={path}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${
-                    location.pathname === path
-                      ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white'
-                      : 'text-gray-600 hover:bg-gray-100'
-                  }`}
-                >
-                  {React.createElement(NavIcon, { size: 20 })}
+                <Link key={path} to={path} onClick={() => setMobileMenuOpen(false)}
+                  className={`sidebar-nav-link ${location.pathname === path ? 'active' : ''}`}>
+                  <NavIcon size={20} />
                   <span className="font-medium">{label}</span>
                 </Link>
               ))}
             </nav>
 
-            <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-100">
-              <div className="flex items-center gap-3 p-3 rounded-xl bg-gray-50">
-                <div className="w-9 h-9 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-semibold text-sm">
-                  {user?.username?.charAt(0).toUpperCase() || 'U'}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">
-                    {user?.username || 'User'}
-                  </p>
+            <div className="sidebar-footer" style={{ position: 'absolute', bottom: 0, left: 0, right: 0 }}>
+              <div className="sidebar-user">
+                <div className="avatar">{user?.username?.charAt(0).toUpperCase() || 'U'}</div>
+                <div className="sidebar-user-info">
+                  <p className="text-sm font-medium text-gray-900">{user?.username || 'User'}</p>
                 </div>
               </div>
-              <button
-                onClick={handleLogout}
-                className="w-full mt-2 flex items-center justify-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg"
-              >
-                <LogOut size={16} />
-                Logout
+              <button onClick={handleLogout} style={{ width: '100%', marginTop: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.5rem 1rem', fontSize: '0.875rem', color: 'var(--red-600)', borderRadius: '0.5rem', transition: 'background-color 0.15s ease' }}
+                onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--red-50)'}
+                onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
+                <LogOut size={16} /> Logout
               </button>
             </div>
           </aside>
         </div>
       )}
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Top Header */}
-        <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 lg:px-6">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => setMobileMenuOpen(true)}
-              className="lg:hidden p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg"
-            >
+      <div className="flex-1 flex flex-col" style={{ minWidth: 0 }}>
+        <header className="top-header">
+          <div className="top-header-left">
+            <button onClick={() => setMobileMenuOpen(true)} className="lg:hidden icon-btn">
               <Menu size={20} />
             </button>
-            <div className="hidden lg:block">
+            <div className="lg:block hidden">
               <h1 className="text-lg font-semibold text-gray-900">
                 {navLinks.find(l => l.path === location.pathname)?.label || 'Dashboard'}
               </h1>
             </div>
           </div>
-
-          <div className="flex items-center gap-3">
-            <a
-              href="https://github.com/Mithrajith/Code2Resume"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-            >
+          <div className="top-header-right">
+            <a href="https://github.com/Mithrajith/Code2Resume" target="_blank" rel="noopener noreferrer" className="icon-btn">
               <Github size={20} />
             </a>
             <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-green-50 text-green-700 rounded-full text-sm">
@@ -247,8 +155,7 @@ export default function Layout({ children }) {
           </div>
         </header>
 
-        {/* Page Content */}
-        <main className="flex-1 overflow-auto p-4 lg:p-6">
+        <main className="main-content">
           {children}
         </main>
       </div>

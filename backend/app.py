@@ -274,7 +274,7 @@ async def generate_resume_file(request: ResumeRequest, current_user: User = Depe
         latex_content = agent_service.generate_resume(
             request.query, 
             username=current_user.username, 
-            model="resume-coder:latest"
+            model="mistral:latest"
         )
         
         if latex_content.startswith("Error"):
@@ -506,8 +506,8 @@ async def fetch_github_data(owner: str, repo: str, token: str):
 
 async def run_llm(prompt: str, context_name: str):
     # Strategy: Prioritize GPU. If VRAM (4GB) is insufficient, offload to CPU/RAM.
-    # Using resume-coder:latest (fine-tuned) optimized for this app.
-    model = "resume-coder:latest" 
+    # Using mistral:latest (fine-tuned) optimized for this app.
+    model = "mistral:latest" 
     try:
         # Test Ollama connection first
         try:

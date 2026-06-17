@@ -99,9 +99,10 @@ uv.lock
 .Trashes
 ehthumbs.db
 Thumbs.db
-
+.env
 tmp/
 fine-tuning/
 tests/
 data/
+*.db
 .mimocode/

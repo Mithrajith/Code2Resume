@@ -9,15 +9,16 @@ from config.settings import settings
 class GitHubService:
     """Service to interact with GitHub API and extract repository information"""
     
-    def __init__(self):
+    def __init__(self, user_token: str = None):
         self.base_url = settings.github_api_base
         self.headers = {
             'Accept': 'application/vnd.github.v3+json',
             'User-Agent': 'Code2Resume/1.0'
         }
         
-        if settings.github_token:
-            self.headers['Authorization'] = f'token {settings.github_token}'
+        token = user_token or settings.github_token
+        if token:
+            self.headers['Authorization'] = f'token {token}'
     
     async def analyze_repository(self, repo_url: str) -> Dict[str, Any]:
         """
@@ -76,7 +77,7 @@ class GitHubService:
         url = f"{self.base_url}/repos/{owner}/{repo}"
         
         try:
-            response = requests.get(url, headers=self.headers, timeout=10)
+            response = await asyncio.to_thread(requests.get, url, headers=self.headers, timeout=10)
             response.raise_for_status()
             return response.json()
         except requests.RequestException as e:
@@ -89,13 +90,12 @@ class GitHubService:
         for readme_file in readme_files:
             try:
                 url = f"{self.base_url}/repos/{owner}/{repo}/contents/{readme_file}"
-                response = requests.get(url, headers=self.headers, timeout=10)
+                response = await asyncio.to_thread(requests.get, url, headers=self.headers, timeout=10)
                 
                 if response.status_code == 200:
                     content_data = response.json()
                     if content_data.get('encoding') == 'base64':
                         content = base64.b64decode(content_data['content']).decode('utf-8')
-                        # Limit README length for processing
                         return content[:5000] if len(content) > 5000 else content
                         
             except Exception:
@@ -108,7 +108,7 @@ class GitHubService:
         url = f"{self.base_url}/repos/{owner}/{repo}/languages"
         
         try:
-            response = requests.get(url, headers=self.headers, timeout=10)
+            response = await asyncio.to_thread(requests.get, url, headers=self.headers, timeout=10)
             response.raise_for_status()
             return response.json()
         except requests.RequestException:
@@ -118,7 +118,7 @@ class GitHubService:
         """Analyze repository structure to detect frameworks and patterns"""
         try:
             url = f"{self.base_url}/repos/{owner}/{repo}/contents"
-            response = requests.get(url, headers=self.headers, timeout=10)
+            response = await asyncio.to_thread(requests.get, url, headers=self.headers, timeout=10)
             
             if response.status_code == 200:
                 contents = response.json()

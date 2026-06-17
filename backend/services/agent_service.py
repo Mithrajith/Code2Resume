@@ -1,31 +1,41 @@
 import ollama
 import os
 from .rag_service import RAGService
+from .project_search import search_projects, format_response
+from .intent_detector import detect_intent
+
 
 class AgentService:
     def __init__(self):
         self.rag = RAGService()
 
-    def ask(self, query: str, username: str, model: str = "resume-coder:latest"):
-        # Check for resume generation intent
+    def ask(self, query: str, username: str, model: str = "mistral:latest"):
         if "resume" in query.lower() or "cv" in query.lower():
             return self.generate_resume(query, username, model)
 
-        # 1. Retrieve context - increase results for comprehensive listing
-        n_results = 50 if any(word in query.lower() for word in ['list', 'all', 'show']) else 5
-        results = self.rag.query(query, username=username, n_results=n_results)
-        
-        documents = results.get('documents', [[]])[0]
-        
-        if not documents:
-            context = "No specific project information found."
-        else:
-            context = "\n---\n".join(documents)
+        intent = detect_intent(query)
+        print(f"Intent detected: {intent['intent']}, category={intent['category']}, tech={intent['technology']}, difficulty={intent['difficulty']}")
 
-        # 2. Construct prompt
-        prompt = f"""
-You are an intelligent assistant helping a developer create a resume or portfolio content based on their GitHub projects.
-Use the following retrieved context about the user's projects to answer the question or fulfill the request.
+        if intent["intent"] in ("category_search", "best_category_search", "technology_search",
+                                 "difficulty_search", "best_search", "list_all", "count"):
+            repos = self.rag.get_user_repos(username)
+            if not repos:
+                return "No analyzed projects found. Please analyze your GitHub repositories first from the GitHub Analysis page."
+
+            search_result = search_projects(repos, query)
+            return format_response(search_result, query)
+
+        n_results = 50 if intent["is_list_request"] else 10
+        results = self.rag.query(query, username=username, n_results=n_results)
+        documents = results.get('documents', [[]])[0]
+
+        if not documents:
+            return "No project information found. Try analyzing your GitHub repositories first."
+
+        context = "\n---\n".join(documents)
+
+        prompt = f"""You are an intelligent assistant helping a developer with their portfolio.
+Use the following context about the user's projects to answer accurately.
 
 Context from analyzed repositories:
 {context}
@@ -33,12 +43,13 @@ Context from analyzed repositories:
 User Request: {query}
 
 Instructions:
-- Use the provided context to give accurate details about the projects.
-- If the context doesn't contain the answer, say so, but try to infer from the tech stacks if possible.
-- Format the output clearly (Markdown is supported).
-"""
+- Use ONLY the provided context to answer.
+- If listing projects, include ALL matching projects from the context.
+- Group results by category when possible.
+- Do NOT include projects that don't match the user's request.
+- Format output clearly with Markdown.
+- Be specific about technologies and project details."""
 
-        # 3. Generate response
         print(f"Agent querying {model} with context length {len(context)}")
         try:
             response = ollama.chat(model=model, messages=[
@@ -48,28 +59,38 @@ Instructions:
         except Exception as e:
             return f"Error generating response: {str(e)}"
 
-    def ask_stream(self, query: str, username: str, model: str = "resume-coder:latest"):
-        """Streaming version that yields tokens as they're generated"""
-        # Check for resume generation intent
+    def ask_stream(self, query: str, username: str, model: str = "mistral:latest"):
         if "resume" in query.lower() or "cv" in query.lower():
             yield self.generate_resume(query, username, model)
             return
 
-        # 1. Retrieve context - increase results for comprehensive listing
-        n_results = 50 if any(word in query.lower() for word in ['list', 'all', 'show']) else 5
-        results = self.rag.query(query, username=username, n_results=n_results)
-        
-        documents = results.get('documents', [[]])[0]
-        
-        if not documents:
-            context = "No specific project information found."
-        else:
-            context = "\n---\n".join(documents)
+        intent = detect_intent(query)
+        print(f"Stream intent: {intent['intent']}, category={intent['category']}")
 
-        # 2. Construct prompt
-        prompt = f"""
-You are an intelligent assistant helping a developer create a resume or portfolio content based on their GitHub projects.
-Use the following retrieved context about the user's projects to answer the question or fulfill the request.
+        if intent["intent"] in ("category_search", "best_category_search", "technology_search",
+                                 "difficulty_search", "best_search", "list_all", "count"):
+            repos = self.rag.get_user_repos(username)
+            if not repos:
+                yield "No analyzed projects found. Please analyze your GitHub repositories first from the GitHub Analysis page."
+                return
+
+            search_result = search_projects(repos, query)
+            response_text = format_response(search_result, query)
+            yield response_text
+            return
+
+        n_results = 50 if intent["is_list_request"] else 10
+        results = self.rag.query(query, username=username, n_results=n_results)
+        documents = results.get('documents', [[]])[0]
+
+        if not documents:
+            yield "No project information found. Try analyzing your GitHub repositories first."
+            return
+
+        context = "\n---\n".join(documents)
+
+        prompt = f"""You are an intelligent assistant helping a developer with their portfolio.
+Use the following context about the user's projects to answer accurately.
 
 Context from analyzed repositories:
 {context}
@@ -77,13 +98,13 @@ Context from analyzed repositories:
 User Request: {query}
 
 Instructions:
-- Use the provided context to give accurate details about the projects.
-- If the context doesn't contain the answer, say so, but try to infer from the tech stacks if possible.
-- Format the output clearly (Markdown is supported).
-- When listing projects, include ALL relevant projects from the context without limitation.
-"""
+- Use ONLY the provided context to answer.
+- If listing projects, include ALL matching projects from the context.
+- Group results by category when possible.
+- Do NOT include projects that don't match the user's request.
+- Format output clearly with Markdown.
+- Be specific about technologies and project details."""
 
-        # 3. Stream response
         print(f"Agent streaming from {model} with context length {len(context)}")
         try:
             stream = ollama.chat(
@@ -99,11 +120,10 @@ Instructions:
             yield f"Error generating response: {str(e)}"
 
     def generate_resume(self, query: str, username: str, model: str):
-        # 1. Detect target role/domain from query
         query_lower = query.lower()
         target_domain = None
-        target_role = "Software Engineer"  # Default
-        
+        target_role = "Software Engineer"
+
         domain_keywords = {
             "Machine Learning": ["ml", "machine learning", "ai", "artificial intelligence", "deep learning", "neural network"],
             "Data Science": ["data scien", "data analy", "analytics", "data engineer"],
@@ -111,43 +131,36 @@ Instructions:
             "Frontend": ["frontend", "front-end", "ui", "ux", "react", "vue", "angular"],
             "Backend": ["backend", "back-end", "api", "server"],
             "Mobile App": ["mobile", "android", "ios", "flutter", "react native"],
-            "DevOps": ["devops", "dev-ops", "infrastructure", "cloud", "kubernetes", "docker"]
+            "DevOps": ["devops", "dev-ops", "infrastructure", "cloud", "kubernetes", "docker"],
+            "Cybersecurity": ["security", "cybersecurity", "penetration", "encryption"],
         }
-        
-        # Detect domain from query
+
         for domain, keywords in domain_keywords.items():
             if any(kw in query_lower for kw in keywords):
                 target_domain = domain
                 target_role = domain + " Engineer" if domain != "Full Stack" else "Full Stack Developer"
                 break
-        
+
         print(f"Resume generation: target_domain={target_domain}, target_role={target_role}")
-        
-        # 2. Get project context - filter by domain if specified
+
         if target_domain:
-            # Query with domain-specific keywords for better filtering
             search_query = f"{target_domain} projects"
             results = self.rag.query(search_query, username=username, n_results=50)
         else:
-            # Get all projects
             results = self.rag.query("List all projects and their details", username=username, n_results=50)
-        
+
         documents = results.get('documents', [[]])[0]
         metadatas = results.get('metadatas', [[]])[0]
-        
-        # Filter by domain if we have metadata with domain field
+
         if target_domain and metadatas:
             filtered_docs = []
             for doc, meta in zip(documents, metadatas):
-                # Check if metadata has domain field matching target
                 if isinstance(meta, dict) and meta.get('type') == 'repo_summary':
-                    # Since we don't store domain in metadata, we'll rely on RAG semantic search
                     filtered_docs.append(doc)
             documents = filtered_docs if filtered_docs else documents
-        
+
         context = "\n---\n".join(documents) if documents else "No project data found."
-        
-        # 3. Read LaTeX template - USE MAIN.TEX
+
         template_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data", "LateX_template", "main.tex")
         try:
             with open(template_path, "r") as f:
@@ -155,9 +168,8 @@ Instructions:
         except FileNotFoundError:
             return "Error: Resume template (main.tex) not found."
 
-        # 4. Construct Enhanced Prompt
         domain_filter = f" Focus ONLY on {target_domain} projects." if target_domain else ""
-        
+
         prompt = f"""
 You are an expert Resume Writer and LaTeX developer.
 The user wants a resume for: "{query}"
@@ -226,8 +238,7 @@ Generate the resume now:
                 {'role': 'user', 'content': prompt},
             ], options={'num_gpu': 99})
             content = response['message']['content']
-            
-            # Clean up markdown code blocks if the model adds them
+
             if content.startswith("```tex"):
                 content = content[6:]
             if content.startswith("```latex"):
@@ -236,9 +247,7 @@ Generate the resume now:
                 content = content[3:]
             if content.endswith("```"):
                 content = content[:-3]
-            
-            # Return just the LaTeX content (no markdown wrapper)
+
             return content.strip()
         except Exception as e:
             return f"Error generating resume: {str(e)}"
-

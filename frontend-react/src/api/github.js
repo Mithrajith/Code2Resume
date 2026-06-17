@@ -21,15 +21,19 @@ export const chatQuery = async (message) => {
 };
 
 export const chatStream = async (message, onToken, onDone, onError) => {
+  const controller = new AbortController();
+
   try {
     const token = localStorage.getItem('token');
-    const response = await fetch('http://localhost:8001/ask/stream', {
+    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8001';
+    const response = await fetch(`${baseUrl}/ask/stream`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
       },
-      body: JSON.stringify({ query: message })
+      body: JSON.stringify({ query: message }),
+      signal: controller.signal
     });
 
     if (!response.ok) {
@@ -64,6 +68,11 @@ export const chatStream = async (message, onToken, onDone, onError) => {
 
     if (onDone) onDone();
   } catch (error) {
+    if (error.name === 'AbortError') {
+      return;
+    }
     if (onError) onError(error);
   }
+
+  return () => controller.abort();
 };
