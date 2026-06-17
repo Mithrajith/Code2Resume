@@ -79,6 +79,10 @@ export default function Resumes() {
       addToast({ type: 'error', message: 'Supported formats: JSON, PDF, DOCX, TeX' });
       return;
     }
+    if (file.size > 10 * 1024 * 1024) {
+      addToast({ type: 'error', message: 'File too large. Maximum size is 10MB.' });
+      return;
+    }
     setUploading(true);
     try {
       const formData = new FormData();

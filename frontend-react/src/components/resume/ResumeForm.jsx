@@ -1,4 +1,4 @@
-import { User, FileText, Code2, Briefcase, GraduationCap, Award, FolderOpen, Plus, Trash2 } from 'lucide-react';
+import { User, FileText, Code2, Briefcase, GraduationCap, Award, FolderOpen, Plus, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
 import SectionEditor from './SectionEditor';
 import Button from '../ui/Button';
 
@@ -7,7 +7,19 @@ const textareaClass = `${inputClass} resize-none`;
 
 const PROFICIENCIES = ['beginner', 'intermediate', 'advanced', 'expert'];
 
-export default function ResumeForm({ data, onChange, className = '' }) {
+const SECTION_CONFIG = {
+  personal: { title: 'Personal Information', icon: User },
+  summary: { title: 'Professional Summary', icon: FileText },
+  skills: { title: 'Skills', icon: Code2 },
+  experience: { title: 'Experience', icon: Briefcase },
+  education: { title: 'Education', icon: GraduationCap },
+  certifications: { title: 'Certifications', icon: Award },
+  projects: { title: 'Projects', icon: FolderOpen },
+};
+
+const DEFAULT_ORDER = ['personal', 'summary', 'skills', 'experience', 'education', 'certifications', 'projects'];
+
+export default function ResumeForm({ data, onChange, sectionOrder, onReorder, className = '' }) {
   const updateField = (section, field, value, index) => {
     const updated = { ...data };
     if (index !== undefined) {
@@ -39,39 +51,47 @@ export default function ResumeForm({ data, onChange, className = '' }) {
   const certifications = data.certifications || [];
   const projects = data.projects || [];
 
-  return (
-    <div className={`space-y-4 ${className}`}>
-      <SectionEditor title="Personal Information" icon={User}>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <input className={inputClass} placeholder="Full Name" value={personal.name || ''} onChange={e => updateField('personal', 'name', e.target.value)} />
-          <input className={inputClass} type="email" placeholder="Email" value={personal.email || ''} onChange={e => updateField('personal', 'email', e.target.value)} />
-          <input className={inputClass} placeholder="Phone" value={personal.phone || ''} onChange={e => updateField('personal', 'phone', e.target.value)} />
-          <input className={inputClass} placeholder="Location" value={personal.location || ''} onChange={e => updateField('personal', 'location', e.target.value)} />
-          <input className={inputClass} placeholder="Website URL" value={personal.website || ''} onChange={e => updateField('personal', 'website', e.target.value)} />
-          <input className={inputClass} placeholder="LinkedIn URL" value={personal.linkedin || ''} onChange={e => updateField('personal', 'linkedin', e.target.value)} />
-        </div>
-      </SectionEditor>
+  const orderedSections = sectionOrder || DEFAULT_ORDER;
 
-      <SectionEditor title="Professional Summary" icon={FileText}>
-        <textarea
-          className={textareaClass}
-          rows={4}
-          placeholder="Write a brief professional summary..."
-          value={summary}
-          onChange={e => onChange({ ...data, summary: e.target.value })}
-        />
-        <Button variant="secondary" size="sm" className="w-full">
-          Enhance with AI
-        </Button>
-      </SectionEditor>
+  const moveSection = (index, direction) => {
+    if (!onReorder) return;
+    const newOrder = [...orderedSections];
+    const newIndex = index + direction;
+    if (newIndex < 0 || newIndex >= newOrder.length) return;
+    [newOrder[index], newOrder[newIndex]] = [newOrder[newIndex], newOrder[index]];
+    onReorder(newOrder);
+  };
 
-      <SectionEditor
-        title="Skills"
-        icon={Code2}
-        onAdd={() => addItem('skills', { name: '', proficiency: 'intermediate', category: '' })}
-        addLabel="Add Skill"
-      >
-        {skills.length === 0 ? (
+  const renderSectionContent = (sectionKey) => {
+    switch (sectionKey) {
+      case 'personal':
+        return (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <input className={inputClass} placeholder="Full Name" value={personal.name || ''} onChange={e => updateField('personal', 'name', e.target.value)} />
+            <input className={inputClass} type="email" placeholder="Email" value={personal.email || ''} onChange={e => updateField('personal', 'email', e.target.value)} />
+            <input className={inputClass} placeholder="Phone" value={personal.phone || ''} onChange={e => updateField('personal', 'phone', e.target.value)} />
+            <input className={inputClass} placeholder="Location" value={personal.location || ''} onChange={e => updateField('personal', 'location', e.target.value)} />
+            <input className={inputClass} placeholder="Website URL" value={personal.website || ''} onChange={e => updateField('personal', 'website', e.target.value)} />
+            <input className={inputClass} placeholder="LinkedIn URL" value={personal.linkedin || ''} onChange={e => updateField('personal', 'linkedin', e.target.value)} />
+          </div>
+        );
+      case 'summary':
+        return (
+          <>
+            <textarea
+              className={textareaClass}
+              rows={4}
+              placeholder="Write a brief professional summary..."
+              value={summary}
+              onChange={e => onChange({ ...data, summary: e.target.value })}
+            />
+            <Button variant="secondary" size="sm" className="w-full">
+              Enhance with AI
+            </Button>
+          </>
+        );
+      case 'skills':
+        return skills.length === 0 ? (
           <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-2">No skills added yet</p>
         ) : (
           skills.map((skill, i) => (
@@ -85,16 +105,9 @@ export default function ResumeForm({ data, onChange, className = '' }) {
               </button>
             </div>
           ))
-        )}
-      </SectionEditor>
-
-      <SectionEditor
-        title="Experience"
-        icon={Briefcase}
-        onAdd={() => addItem('experience', { company: '', position: '', startDate: '', endDate: '', description: '', highlights: [] })}
-        addLabel="Add"
-      >
-        {experience.length === 0 ? (
+        );
+      case 'experience':
+        return experience.length === 0 ? (
           <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-2">No experience added yet</p>
         ) : (
           experience.map((exp, i) => (
@@ -111,16 +124,9 @@ export default function ResumeForm({ data, onChange, className = '' }) {
               <textarea className={textareaClass} rows={2} placeholder="Description" value={exp.description || ''} onChange={e => updateField('experience', 'description', e.target.value, i)} />
             </div>
           ))
-        )}
-      </SectionEditor>
-
-      <SectionEditor
-        title="Education"
-        icon={GraduationCap}
-        onAdd={() => addItem('education', { institution: '', degree: '', field: '', startDate: '', endDate: '', gpa: '' })}
-        addLabel="Add"
-      >
-        {education.length === 0 ? (
+        );
+      case 'education':
+        return education.length === 0 ? (
           <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-2">No education added yet</p>
         ) : (
           education.map((edu, i) => (
@@ -138,16 +144,9 @@ export default function ResumeForm({ data, onChange, className = '' }) {
               </div>
             </div>
           ))
-        )}
-      </SectionEditor>
-
-      <SectionEditor
-        title="Certifications"
-        icon={Award}
-        onAdd={() => addItem('certifications', { name: '', issuer: '', date: '', url: '' })}
-        addLabel="Add"
-      >
-        {certifications.length === 0 ? (
+        );
+      case 'certifications':
+        return certifications.length === 0 ? (
           <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-2">No certifications added yet</p>
         ) : (
           certifications.map((cert, i) => (
@@ -159,16 +158,9 @@ export default function ResumeForm({ data, onChange, className = '' }) {
               </button>
             </div>
           ))
-        )}
-      </SectionEditor>
-
-      <SectionEditor
-        title="Projects"
-        icon={FolderOpen}
-        onAdd={() => addItem('projects', { name: '', description: '', technologies: '', link: '' })}
-        addLabel="Add"
-      >
-        {projects.length === 0 ? (
+        );
+      case 'projects':
+        return projects.length === 0 ? (
           <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-2">No projects added yet</p>
         ) : (
           projects.map((proj, i) => (
@@ -184,8 +176,66 @@ export default function ResumeForm({ data, onChange, className = '' }) {
               <input className={inputClass} placeholder="Link URL" value={proj.link || ''} onChange={e => updateField('projects', 'link', e.target.value, i)} />
             </div>
           ))
-        )}
-      </SectionEditor>
+        );
+      default:
+        return null;
+    }
+  };
+
+  const getAddHandler = (sectionKey) => {
+    switch (sectionKey) {
+      case 'skills': return () => addItem('skills', { name: '', proficiency: 'intermediate', category: '' });
+      case 'experience': return () => addItem('experience', { company: '', position: '', startDate: '', endDate: '', description: '', highlights: [] });
+      case 'education': return () => addItem('education', { institution: '', degree: '', field: '', startDate: '', endDate: '', gpa: '' });
+      case 'certifications': return () => addItem('certifications', { name: '', issuer: '', date: '', url: '' });
+      case 'projects': return () => addItem('projects', { name: '', description: '', technologies: '', link: '' });
+      default: return undefined;
+    }
+  };
+
+  return (
+    <div className={`space-y-4 ${className}`}>
+      {orderedSections.map((sectionKey, index) => {
+        const config = SECTION_CONFIG[sectionKey];
+        if (!config) return null;
+        const Icon = config.icon;
+        const canMoveUp = onReorder && index > 0;
+        const canMoveDown = onReorder && index < orderedSections.length - 1;
+
+        return (
+          <SectionEditor
+            key={sectionKey}
+            title={config.title}
+            icon={Icon}
+            onAdd={getAddHandler(sectionKey)}
+            addLabel={sectionKey === 'skills' ? 'Add Skill' : 'Add'}
+            headerExtra={
+              onReorder && (
+                <div className="flex items-center gap-0.5">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); moveSection(index, -1); }}
+                    disabled={!canMoveUp}
+                    className="p-0.5 text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    title="Move up"
+                  >
+                    <ChevronUp className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); moveSection(index, 1); }}
+                    disabled={!canMoveDown}
+                    className="p-0.5 text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    title="Move down"
+                  >
+                    <ChevronDown className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )
+            }
+          >
+            {renderSectionContent(sectionKey)}
+          </SectionEditor>
+        );
+      })}
     </div>
   );
 }

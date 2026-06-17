@@ -11,6 +11,7 @@ export default function SectionEditor({
   addLabel,
   children,
   className = '',
+  headerExtra,
 }) {
   const [internalOpen, setInternalOpen] = useState(true);
   const isOpen = controlledOpen !== undefined ? controlledOpen : internalOpen;
@@ -27,6 +28,7 @@ export default function SectionEditor({
           <span className="text-sm font-semibold text-gray-900 dark:text-white">{title}</span>
         </div>
         <div className="flex items-center gap-2">
+          {headerExtra}
           {onAdd && (
             <span
               role="button"

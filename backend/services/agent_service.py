@@ -1,8 +1,6 @@
 import ollama
 import os
 from .rag_service import RAGService
-from .project_search import search_projects, format_response
-from .intent_detector import detect_intent
 
 
 class AgentService:
@@ -13,19 +11,7 @@ class AgentService:
         if "resume" in query.lower() or "cv" in query.lower():
             return self.generate_resume(query, username, model)
 
-        intent = detect_intent(query)
-        print(f"Intent detected: {intent['intent']}, category={intent['category']}, tech={intent['technology']}, difficulty={intent['difficulty']}")
-
-        if intent["intent"] in ("category_search", "best_category_search", "technology_search",
-                                 "difficulty_search", "best_search", "list_all", "count"):
-            repos = self.rag.get_user_repos(username)
-            if not repos:
-                return "No analyzed projects found. Please analyze your GitHub repositories first from the GitHub Analysis page."
-
-            search_result = search_projects(repos, query)
-            return format_response(search_result, query)
-
-        n_results = 50 if intent["is_list_request"] else 10
+        n_results = 50
         results = self.rag.query(query, username=username, n_results=n_results)
         documents = results.get('documents', [[]])[0]
 
@@ -64,22 +50,7 @@ Instructions:
             yield self.generate_resume(query, username, model)
             return
 
-        intent = detect_intent(query)
-        print(f"Stream intent: {intent['intent']}, category={intent['category']}")
-
-        if intent["intent"] in ("category_search", "best_category_search", "technology_search",
-                                 "difficulty_search", "best_search", "list_all", "count"):
-            repos = self.rag.get_user_repos(username)
-            if not repos:
-                yield "No analyzed projects found. Please analyze your GitHub repositories first from the GitHub Analysis page."
-                return
-
-            search_result = search_projects(repos, query)
-            response_text = format_response(search_result, query)
-            yield response_text
-            return
-
-        n_results = 50 if intent["is_list_request"] else 10
+        n_results = 50
         results = self.rag.query(query, username=username, n_results=n_results)
         documents = results.get('documents', [[]])[0]
 

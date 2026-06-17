@@ -64,7 +64,7 @@ async def create_ats_report(
     if data.resume_id and data.job_description_id:
         analysis = await ats_service.analyze_resume_ats(db, data.resume_id, data.job_description_id, current_user_id)
         if "error" in analysis:
-            raise HTTPException(status_code=404, detail=analysis["error"])
+            raise HTTPException(status_code=400, detail=analysis["error"])
     else:
         analysis = {
             "overall_score": 0,
@@ -73,7 +73,10 @@ async def create_ats_report(
             "formatting_issues": [],
             "suggestions": ["Please provide both a resume and job description for analysis"],
         }
-    return await ats_service.create_ats_report(db, current_user_id, data, analysis)
+    try:
+        return await ats_service.create_ats_report(db, current_user_id, data, analysis)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save ATS report: {str(e)}")
 
 
 @router.get("/ats/reports", response_model=list[ATSReportResponse])

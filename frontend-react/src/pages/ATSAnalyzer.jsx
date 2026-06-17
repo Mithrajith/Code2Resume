@@ -70,11 +70,11 @@ export default function ATSAnalyzer() {
         totalKeywords: data.total_keywords ?? 0,
         issues: data.formatting_issues?.length ?? data.issues ?? 0,
         suggestionCount: data.suggestions?.length ?? data.suggestion_count ?? 0,
-        keywords: (data.keywords ?? data.missing_keywords ?? []).map(k => {
+        keywords: (Array.isArray(data.keywords) ? data.keywords : Array.isArray(data.missing_keywords) ? data.missing_keywords : []).map(k => {
           if (typeof k === 'string') return { keyword: k, found: false, severity: 'medium' };
           return { keyword: k.keyword || k.name || k, found: k.found ?? !k.missing ?? false, severity: k.severity || 'medium' };
         }),
-        healthCheckItems: (data.health_check ?? data.section_scores ?? []).map(h => {
+        healthCheckItems: (Array.isArray(data.health_check) ? data.health_check : []).map(h => {
           if (typeof h === 'object' && 'label' in h) return h;
           if (typeof h === 'string') return { label: h, passed: true };
           return { label: h.label || h.section || 'Check', passed: h.passed ?? (h.score ?? 0) >= 50 };
@@ -87,16 +87,28 @@ export default function ATSAnalyzer() {
           if (typeof s === 'string') return { title: s, description: '', priority: 'medium', category: 'General' };
           return { title: s.title || s.recommendation || s, description: s.description || '', priority: s.priority || 'medium', category: s.category || 'General' };
         }),
-        breakdown: (data.section_scores ?? data.breakdown ?? []).map(b => {
-          if (typeof b === 'object' && 'section' in b) return b;
-          if (typeof b === 'string') return { section: b, score: 70 };
-          return { section: b.section || b.category || 'Section', score: b.score ?? 70 };
-        }),
+        breakdown: (() => {
+          if (Array.isArray(data.breakdown) && data.breakdown.length > 0) {
+            return data.breakdown.map(b => {
+              if (typeof b === 'object' && 'section' in b) return b;
+              if (typeof b === 'string') return { section: b, score: 70 };
+              return { section: b.section || b.category || 'Section', score: b.score ?? 70 };
+            });
+          }
+          if (data.section_scores && typeof data.section_scores === 'object' && !Array.isArray(data.section_scores)) {
+            return Object.entries(data.section_scores).map(([section, score]) => ({
+              section: section.charAt(0).toUpperCase() + section.slice(1),
+              score: typeof score === 'number' ? score : 70,
+            }));
+          }
+          return [];
+        })(),
       };
       setResults(atsResult);
       loadData();
-    } catch {
-      setError('Failed to run ATS analysis. Please try again.');
+    } catch (err) {
+      const msg = err?.response?.data?.detail || err?.message || 'Failed to run ATS analysis. Please try again.';
+      setError(msg);
     } finally {
       setAnalyzing(false);
     }

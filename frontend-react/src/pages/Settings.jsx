@@ -184,6 +184,14 @@ export default function Settings() {
         const updateData = { gmail: profile.email, mobile_number: profile.phone };
         const updatedUser = await updateUser(updateData);
         setUser(updatedUser);
+      } else if (tab === 'github') {
+        const updateData = {
+          github_url: github.url || null,
+          github_token: github.token || null,
+        };
+        const updatedUser = await updateUser(updateData);
+        setUser(updatedUser);
+        setGithub(prev => ({ ...prev, token: '', connected: !!github.url }));
       }
       addToast({ type: 'success', message: 'Settings saved successfully!' });
       setMessage({ type: 'success', text: 'Settings updated successfully!' });

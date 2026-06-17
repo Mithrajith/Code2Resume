@@ -1,9 +1,11 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import {
   Search, Filter, GitBranch, Code2, Layers, Wrench,
   BarChart3, Target, Star, Globe, ChevronRight, BookOpen, RefreshCw,
+  Settings, Github,
 } from 'lucide-react';
 import { fetchUserRepos } from '../api/github';
 import Card from '../components/ui/Card';
@@ -17,6 +19,7 @@ import TechTag from '../components/github/TechTag';
 import SkillChart from '../components/github/SkillChart';
 import { useToastStore } from '../components/ui/Toast';
 import api from '../api/axiosConfig';
+import { getCurrentUser } from '../api/auth';
 
 const staggerContainer = {
   hidden: { opacity: 0 },
@@ -64,6 +67,7 @@ function getTechCategory(tech) {
 }
 
 export default function GitHubAnalysis() {
+  const navigate = useNavigate();
   const [repos, setRepos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
@@ -71,6 +75,7 @@ export default function GitHubAnalysis() {
   const [selectedDomain, setSelectedDomain] = useState(null);
   const [selectedRepo, setSelectedRepo] = useState(null);
   const [mobileTab, setMobileTab] = useState('list');
+  const [githubConfigured, setGithubConfigured] = useState(true);
   const addToast = useToastStore(s => s.addToast);
 
   const loadRepos = useCallback(async () => {
@@ -85,6 +90,16 @@ export default function GitHubAnalysis() {
     }
   }, []);
 
+  const checkGithubConfig = useCallback(async () => {
+    try {
+      const userData = await getCurrentUser();
+      setGithubConfigured(!!userData.github_url);
+    } catch {
+      setGithubConfigured(false);
+    }
+  }, []);
+
+  useEffect(() => { checkGithubConfig(); }, [checkGithubConfig]);
   useEffect(() => { loadRepos(); }, [loadRepos]);
 
   const handleSync = useCallback(async () => {
@@ -197,6 +212,38 @@ export default function GitHubAnalysis() {
           </div>
         </div>
       </div>
+    );
+  }
+
+  if (!githubConfigured) {
+    return (
+      <motion.div
+        className="space-y-6"
+        initial="hidden"
+        animate="visible"
+        variants={staggerContainer}
+      >
+        <motion.div variants={staggerItem}>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">GitHub Analysis</h1>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              Analyze your repositories and extract skills
+            </p>
+          </div>
+        </motion.div>
+
+        <motion.div variants={staggerItem}>
+          <Card>
+            <EmptyState
+              icon={Github}
+              title="GitHub not configured"
+              description="Connect your GitHub account to analyze repositories and extract skills for your resume."
+              actionLabel="Configure GitHub"
+              onAction={() => navigate('/settings')}
+            />
+          </Card>
+        </motion.div>
+      </motion.div>
     );
   }
 

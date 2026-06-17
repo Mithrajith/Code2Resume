@@ -4,6 +4,7 @@ import { Save, Download, Eye, Edit3 } from 'lucide-react';
 import Button from '../components/ui/Button';
 import ResumeForm from '../components/resume/ResumeForm';
 import ResumePreview from '../components/resume/ResumePreview';
+import FormattingToolbar from '../components/resume/FormattingToolbar';
 import v2 from '../api/v2';
 import { useResumeStore } from '../store/resumeStore';
 import { useToastStore } from '../components/ui/Toast';
@@ -20,13 +21,27 @@ const defaultData = {
   projects: [],
 };
 
+const defaultFormatting = {
+  name: { fontSize: 20, bold: true },
+  sectionHeadings: { fontSize: 14, bold: true },
+  body: { fontSize: 12, bold: false },
+  experience: { fontSize: 12, bold: false },
+  education: { fontSize: 12, bold: false },
+  skills: { fontSize: 12, bold: false },
+  projects: { fontSize: 12, bold: false },
+  certifications: { fontSize: 12, bold: false },
+};
+
+const defaultSectionOrder = ['personal', 'summary', 'skills', 'experience', 'education', 'certifications', 'projects'];
+
 function mapResumeToFormData(resume) {
   const content = resume.content || {};
+  const asArray = (v) => Array.isArray(v) ? v : [];
   return {
     personal: content.personal || { name: '', email: '', phone: '', location: '', website: '', linkedin: '' },
     summary: resume.summary || '',
-    skills: (resume.skills || []).map(s => ({ name: s.name, proficiency: s.proficiency || 'intermediate', category: s.category || '' })),
-    experience: (resume.experiences || []).map(e => ({
+    skills: asArray(resume.skills).map(s => ({ name: s.name, proficiency: s.proficiency || 'intermediate', category: s.category || '' })),
+    experience: asArray(resume.experiences).map(e => ({
       company: e.company,
       position: e.position,
       startDate: e.start_date || '',
@@ -34,7 +49,7 @@ function mapResumeToFormData(resume) {
       description: e.description || '',
       highlights: e.highlights || [],
     })),
-    education: (resume.educations || []).map(e => ({
+    education: asArray(resume.educations).map(e => ({
       institution: e.institution,
       degree: e.degree || '',
       field: e.field_of_study || '',
@@ -42,11 +57,11 @@ function mapResumeToFormData(resume) {
       endDate: e.end_date || '',
       gpa: e.gpa || '',
     })),
-    certifications: (resume.certifications || []).map(c => ({
+    certifications: asArray(resume.certifications).map(c => ({
       name: c.name,
       issuer: c.issuer || '',
     })),
-    projects: (resume.projects || []).map(p => ({
+    projects: asArray(resume.projects).map(p => ({
       name: p.name,
       description: p.description || '',
       technologies: Array.isArray(p.technologies) ? p.technologies.join(', ') : (p.technologies || ''),
@@ -55,12 +70,26 @@ function mapResumeToFormData(resume) {
   };
 }
 
-function mapFormDataToPayload(data, title, template) {
+function mapResumeToFormatting(resume) {
+  const content = resume.content || {};
+  return content.formatting || { ...defaultFormatting };
+}
+
+function mapResumeToSectionOrder(resume) {
+  const content = resume.content || {};
+  return content.sectionOrder || [...defaultSectionOrder];
+}
+
+function mapFormDataToPayload(data, title, template, formatting, sectionOrder) {
   return {
     title: title || 'Untitled Resume',
     template,
     summary: data.summary || '',
-    content: { personal: data.personal },
+    content: {
+      personal: data.personal,
+      formatting,
+      sectionOrder,
+    },
   };
 }
 
@@ -78,6 +107,8 @@ export default function ResumeBuilder() {
       return defaultData;
     }
   });
+  const [formatting, setFormatting] = useState({ ...defaultFormatting });
+  const [sectionOrder, setSectionOrder] = useState([...defaultSectionOrder]);
   const [resumeId, setResumeId] = useState(null);
   const [resumeTitle, setResumeTitle] = useState('Untitled Resume');
   const [mobileTab, setMobileTab] = useState('form');
@@ -91,6 +122,8 @@ export default function ResumeBuilder() {
       const res = await v2.resumes.get(id);
       const resume = res.data || res;
       setData(mapResumeToFormData(resume));
+      setFormatting(mapResumeToFormatting(resume));
+      setSectionOrder(mapResumeToSectionOrder(resume));
       setResumeId(resume.id);
       setResumeTitle(resume.title || 'Untitled Resume');
       if (resume.template) setSelectedTemplate(resume.template);
@@ -129,7 +162,7 @@ export default function ResumeBuilder() {
 
   const handleSave = async () => {
     try {
-      const payload = mapFormDataToPayload(data, resumeTitle, selectedTemplate);
+      const payload = mapFormDataToPayload(data, resumeTitle, selectedTemplate, formatting, sectionOrder);
       if (resumeId) {
         await v2.resumes.update(resumeId, payload);
       } else {
@@ -221,7 +254,8 @@ export default function ResumeBuilder() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className={`space-y-4 max-h-[calc(100vh-200px)] overflow-y-auto pr-2 ${mobileTab !== 'form' ? 'hidden lg:block' : ''}`}>
-          <ResumeForm data={data} onChange={handleDataChange} />
+          <FormattingToolbar formatting={formatting} onChange={setFormatting} />
+          <ResumeForm data={data} onChange={handleDataChange} sectionOrder={sectionOrder} onReorder={setSectionOrder} />
         </div>
 
         <div className={`space-y-4 ${mobileTab !== 'preview' ? 'hidden lg:block' : ''}`}>
@@ -241,7 +275,7 @@ export default function ResumeBuilder() {
               Export
             </Button>
           </div>
-          <ResumePreview data={data} template={selectedTemplate} />
+          <ResumePreview data={data} template={selectedTemplate} formatting={formatting} sectionOrder={sectionOrder} />
         </div>
       </div>
     </div>

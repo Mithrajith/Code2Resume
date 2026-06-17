@@ -71,8 +71,20 @@ async def get_user_repos(
         raw_repos = response.json()
         repos = []
         for r in raw_repos:
+            repo_name = r.get("name", "")
+            readme = ""
+            try:
+                readme_url = f"{gh.base_url}/repos/{owner}/{repo_name}/readme"
+                readme_resp = await asyncio.to_thread(
+                    lambda url=readme_url: __import__('requests').get(url, headers={**gh.headers, 'Accept': 'application/vnd.github.v3.raw'}, timeout=10)
+                )
+                if readme_resp.status_code == 200:
+                    readme = readme_resp.text[:3000] if readme_resp.text else ""
+            except Exception:
+                pass
+
             repos.append({
-                "name": r.get("name", ""),
+                "name": repo_name,
                 "description": r.get("description", "") or "",
                 "language": r.get("language", ""),
                 "stars": r.get("stargazers_count", 0),
@@ -83,7 +95,7 @@ async def get_user_repos(
                 "category": "Other",
                 "url": r.get("html_url", ""),
                 "updated_at": r.get("updated_at", ""),
-                "readme": "",
+                "readme": readme,
             })
         return repos
     except Exception as e:

@@ -192,7 +192,7 @@ class GitHubService:
     
     def _classify_project_type(self, repo_data: Dict, readme: str, structure: Dict) -> str:
         """Classify the type of project based on available information"""
-        description = (repo_data.get('description', '') + ' ' + readme).lower()
+        description = ((repo_data.get('description') or '') + ' ' + (readme or '')).lower()
         
         # Project type patterns
         if any(keyword in description for keyword in ['machine learning', 'ml', 'ai', 'neural', 'model']):

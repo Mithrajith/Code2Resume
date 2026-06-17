@@ -61,6 +61,8 @@ class RAGService:
             "popularity_score": scores["popularity_score"],
             "complexity_score": scores["complexity_score"],
             "final_score": scores["final_score"],
+            "readme": readme[:3000] if readme else "",
+            "description": description,
         }]
         ids = [f"{username}_{repo_name}_summary"]
 
@@ -94,10 +96,23 @@ class RAGService:
         if results and results['metadatas']:
             for i, metadata in enumerate(results['metadatas']):
                 doc = results['documents'][i] if results['documents'] else ""
+                readme = metadata.get("readme", "")
+                description = metadata.get("description", "")
+
+                tech_stack = []
+                skills = []
+                frameworks = []
+                for line in doc.split("\n"):
+                    if line.startswith("Tech Stack:"):
+                        tech_str = line.replace("Tech Stack:", "").strip()
+                        tech_stack = [t.strip() for t in tech_str.split(",") if t.strip()]
+
                 repo_info = {
                     "name": metadata.get("name", "unknown"),
-                    "description": "",
-                    "tech_stack": [],
+                    "description": description,
+                    "tech_stack": tech_stack,
+                    "skills": [],
+                    "frameworks": [],
                     "domain": metadata.get("category", ""),
                     "category": metadata.get("category", "Other"),
                     "subcategories": json.loads(metadata.get("subcategories", "[]")),
@@ -107,19 +122,9 @@ class RAGService:
                     "popularity_score": metadata.get("popularity_score", 0),
                     "complexity_score": metadata.get("complexity_score", 0),
                     "final_score": metadata.get("final_score", 0),
-                    "what_it_does": "",
-                    "readme": "",
+                    "what_it_does": description,
+                    "readme": readme,
                 }
-
-                for line in doc.split("\n"):
-                    if line.startswith("Description:"):
-                        repo_info["description"] = line.replace("Description:", "").strip()
-                        repo_info["what_it_does"] = repo_info["description"]
-                    elif line.startswith("Tech Stack:"):
-                        tech_str = line.replace("Tech Stack:", "").strip()
-                        repo_info["tech_stack"] = [t.strip() for t in tech_str.split(",") if t.strip()]
-                    elif line.startswith("README:"):
-                        repo_info["readme"] = line.replace("README:", "").strip()
 
                 repos.append(repo_info)
 
@@ -143,26 +148,26 @@ class RAGService:
         if results and results['metadatas']:
             for i, metadata in enumerate(results['metadatas']):
                 doc = results['documents'][i] if results['documents'] else ""
+                readme = metadata.get("readme", "")
+                description = metadata.get("description", "")
+
+                tech_stack = []
+                for line in doc.split("\n"):
+                    if line.startswith("Tech Stack:"):
+                        tech_str = line.replace("Tech Stack:", "").strip()
+                        tech_stack = [t.strip() for t in tech_str.split(",") if t.strip()]
+
                 repo_info = {
                     "name": metadata.get("name", "unknown"),
-                    "description": "",
-                    "tech_stack": [],
+                    "description": description,
+                    "tech_stack": tech_stack,
                     "category": metadata.get("category", "Other"),
                     "difficulty": metadata.get("difficulty", "intermediate"),
                     "tags": json.loads(metadata.get("tags", "[]")),
                     "final_score": metadata.get("final_score", 0),
-                    "what_it_does": "",
-                    "readme": "",
+                    "what_it_does": description,
+                    "readme": readme,
                 }
-                for line in doc.split("\n"):
-                    if line.startswith("Description:"):
-                        repo_info["description"] = line.replace("Description:", "").strip()
-                        repo_info["what_it_does"] = repo_info["description"]
-                    elif line.startswith("Tech Stack:"):
-                        tech_str = line.replace("Tech Stack:", "").strip()
-                        repo_info["tech_stack"] = [t.strip() for t in tech_str.split(",") if t.strip()]
-                    elif line.startswith("README:"):
-                        repo_info["readme"] = line.replace("README:", "").strip()
                 repos.append(repo_info)
 
         return repos

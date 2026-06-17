@@ -546,56 +546,71 @@ async def import_resume(
         resume = await resume_service.create_resume(db, current_user_id, resume_data)
 
         for exp in (data.get("experience") or data.get("experiences") or []):
-            if isinstance(exp, dict) and (exp.get("company") or exp.get("position")):
-                await resume_service.add_experience(db, resume.id, ExperienceCreate(
-                    company=exp.get("company", ""),
-                    position=exp.get("position") or exp.get("title", ""),
-                    start_date=exp.get("startDate") or exp.get("start_date", ""),
-                    end_date=exp.get("endDate") or exp.get("end_date", ""),
-                    description=exp.get("description", ""),
-                    highlights=exp.get("highlights") or [],
-                ))
+            try:
+                if isinstance(exp, dict) and (exp.get("company") or exp.get("position")):
+                    await resume_service.add_experience(db, resume.id, ExperienceCreate(
+                        company=exp.get("company", "") or "",
+                        position=exp.get("position") or exp.get("title", "") or "",
+                        start_date=exp.get("startDate") or exp.get("start_date", ""),
+                        end_date=exp.get("endDate") or exp.get("end_date", ""),
+                        description=exp.get("description", ""),
+                        highlights=exp.get("highlights") or [],
+                    ))
+            except Exception as e:
+                print(f"Failed to add experience item: {e}")
 
         for edu in (data.get("education") or data.get("educations") or []):
-            if isinstance(edu, dict) and edu.get("institution"):
-                await resume_service.add_education(db, resume.id, EducationCreate(
-                    institution=edu["institution"],
-                    degree=edu.get("degree", ""),
-                    field_of_study=edu.get("field") or edu.get("field_of_study", ""),
-                    start_date=edu.get("startDate") or edu.get("start_date", ""),
-                    end_date=edu.get("endDate") or edu.get("end_date", ""),
-                    gpa=edu.get("gpa", ""),
-                ))
+            try:
+                if isinstance(edu, dict) and edu.get("institution"):
+                    await resume_service.add_education(db, resume.id, EducationCreate(
+                        institution=edu["institution"],
+                        degree=edu.get("degree", ""),
+                        field_of_study=edu.get("field") or edu.get("field_of_study", ""),
+                        start_date=edu.get("startDate") or edu.get("start_date", ""),
+                        end_date=edu.get("endDate") or edu.get("end_date", ""),
+                        gpa=edu.get("gpa", ""),
+                    ))
+            except Exception as e:
+                print(f"Failed to add education item: {e}")
 
         for skill in (data.get("skills") or []):
-            if isinstance(skill, dict) and skill.get("name"):
-                await resume_service.add_skill(db, resume.id, SkillCreate(
-                    name=skill["name"],
-                    proficiency=skill.get("proficiency", "intermediate"),
-                    category=skill.get("category", ""),
-                ))
-            elif isinstance(skill, str) and skill.strip():
-                await resume_service.add_skill(db, resume.id, SkillCreate(name=skill.strip()))
+            try:
+                if isinstance(skill, dict) and skill.get("name"):
+                    await resume_service.add_skill(db, resume.id, SkillCreate(
+                        name=skill["name"],
+                        proficiency=skill.get("proficiency", "intermediate"),
+                        category=skill.get("category", ""),
+                    ))
+                elif isinstance(skill, str) and skill.strip():
+                    await resume_service.add_skill(db, resume.id, SkillCreate(name=skill.strip()))
+            except Exception as e:
+                print(f"Failed to add skill item: {e}")
 
         for cert in (data.get("certifications") or []):
-            if isinstance(cert, dict) and cert.get("name"):
-                await resume_service.add_certification(db, resume.id, CertificationCreate(
-                    name=cert["name"],
-                    issuer=cert.get("issuer", ""),
-                ))
+            try:
+                if isinstance(cert, dict) and cert.get("name"):
+                    await resume_service.add_certification(db, resume.id, CertificationCreate(
+                        name=cert["name"],
+                        issuer=cert.get("issuer", ""),
+                    ))
+            except Exception as e:
+                print(f"Failed to add certification item: {e}")
 
         for proj in (data.get("projects") or []):
-            if isinstance(proj, dict) and proj.get("name"):
-                techs = proj.get("technologies", "")
-                if isinstance(techs, str):
-                    techs = [t.strip() for t in techs.split(",") if t.strip()]
-                await resume_service.add_project(db, resume.id, ProjectCreate(
-                    name=proj["name"],
-                    description=proj.get("description", ""),
-                    technologies=techs if isinstance(techs, list) else [],
-                    github_url=proj.get("github_url", ""),
-                    live_url=proj.get("link") or proj.get("live_url", ""),
-                ))
+            try:
+                if isinstance(proj, dict) and proj.get("name"):
+                    techs = proj.get("technologies", "")
+                    if isinstance(techs, str):
+                        techs = [t.strip() for t in techs.split(",") if t.strip()]
+                    await resume_service.add_project(db, resume.id, ProjectCreate(
+                        name=proj["name"],
+                        description=proj.get("description", ""),
+                        technologies=techs if isinstance(techs, list) else [],
+                        github_url=proj.get("github_url", ""),
+                        live_url=proj.get("link") or proj.get("live_url", ""),
+                    ))
+            except Exception as e:
+                print(f"Failed to add project item: {e}")
 
         await db.commit()
         return await resume_service.get_resume(db, resume.id, current_user_id)
