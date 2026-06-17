@@ -72,11 +72,24 @@ cover/
 *.sqlite3
 users.db
 
-# Project Specific
+# Project Specific - Data Files
 chroma_db/
 dataset/
 *.log
 uv.lock
+
+# User Data (keep structure but ignore user files)
+# data/Git_details/*/
+# data/resumes/*.tex
+# data/outputs/*
+# !data/outputs/README.md
+# data/lora_model/*
+# !data/lora_model/README.md
+
+# Keep template/example directories
+!data/LateX_template/
+!data/fonts/
+!data/templates/
 
 # OS Generated
 .DS_Store
@@ -88,3 +101,7 @@ ehthumbs.db
 Thumbs.db
 
 tmp/
+fine-tuning/
+tests/
+data/
+.mimocode/

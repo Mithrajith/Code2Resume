@@ -74,3 +74,40 @@ class RAGService:
             where={"username": username}  # Filter by username
         )
         return results
+
+    def get_user_repos(self, username: str):
+        """
+        Gets all repositories for a specific user from the vector store.
+        """
+        if self.collection.count() == 0:
+            return []
+
+        results = self.collection.get(
+            where={"username": username, "type": "repo_summary"}
+        )
+
+        repos = []
+        if results and results['metadatas']:
+            for i, metadata in enumerate(results['metadatas']):
+                doc = results['documents'][i] if results['documents'] else ""
+                # Parse the document to extract repo info
+                repo_info = {
+                    "name": metadata.get("name", "unknown"),
+                    "description": "",
+                    "tech_stack": [],
+                    "domain": "",
+                    "what_it_does": ""
+                }
+
+                # Parse the text content
+                for line in doc.split("\n"):
+                    if line.startswith("Description:"):
+                        repo_info["description"] = line.replace("Description:", "").strip()
+                        repo_info["what_it_does"] = repo_info["description"]
+                    elif line.startswith("Tech Stack:"):
+                        tech_str = line.replace("Tech Stack:", "").strip()
+                        repo_info["tech_stack"] = [t.strip() for t in tech_str.split(",") if t.strip()]
+
+                repos.append(repo_info)
+
+        return repos

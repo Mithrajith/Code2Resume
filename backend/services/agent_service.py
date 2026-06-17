@@ -148,7 +148,7 @@ Instructions:
         context = "\n---\n".join(documents) if documents else "No project data found."
         
         # 3. Read LaTeX template - USE MAIN.TEX
-        template_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "LateX_template", "main.tex")
+        template_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data", "LateX_template", "main.tex")
         try:
             with open(template_path, "r") as f:
                 template_content = f.read()

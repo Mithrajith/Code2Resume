@@ -4,7 +4,7 @@ import ollama
 import asyncio
 from fastapi import FastAPI, HTTPException, Depends, status, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
+from fastapi.responses import JSONResponse, FileResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pydantic import BaseModel
 from typing import List, Dict, Any, Union, Optional
@@ -43,10 +43,15 @@ agent_service = AgentService()
 # Job tracking for background tasks
 analysis_jobs = {}
 
-# Enable CORS
+# Enable CORS - Allow React dev server
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:5173",  # React Vite dev server
+        "http://localhost:3000",  # Alternative React dev server
+        "http://localhost:8001",  # Backend itself
+    ],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -247,6 +252,17 @@ async def ask_agent_stream(request: AskRequest, current_user: User = Depends(get
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/repos")
+async def get_user_repos(current_user: User = Depends(get_current_user)):
+    """
+    Gets all analyzed repositories for the current user
+    """
+    try:
+        repos = rag_service.get_user_repos(current_user.username)
+        return repos
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/generate-resume")
 async def generate_resume_file(request: ResumeRequest, current_user: User = Depends(get_current_user)):
     """
@@ -265,7 +281,7 @@ async def generate_resume_file(request: ResumeRequest, current_user: User = Depe
             raise HTTPException(status_code=500, detail=latex_content)
         
         # Create resumes directory if it doesn't exist
-        resumes_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "resumes")
+        resumes_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "resumes")
         if not os.path.exists(resumes_dir):
             os.makedirs(resumes_dir)
         
@@ -332,7 +348,7 @@ async def list_resumes(current_user: User = Depends(get_current_user)):
         base_dir = os.path.dirname(os.path.dirname(__file__))
         directories = [
             os.path.join(base_dir, "tmp"),
-            os.path.join(base_dir, "resumes")
+            os.path.join(base_dir, "data", "resumes")
         ]
         
         user_files = []
@@ -385,7 +401,7 @@ async def download_resume(filename: str, current_user: User = Depends(get_curren
         base_dir = os.path.dirname(os.path.dirname(__file__))
         directories = [
             os.path.join(base_dir, "tmp"),
-            os.path.join(base_dir, "resumes")
+            os.path.join(base_dir, "data", "resumes")
         ]
         
         filepath = None
@@ -427,7 +443,7 @@ async def delete_resume(filename: str, current_user: User = Depends(get_current_
         base_dir = os.path.dirname(os.path.dirname(__file__))
         directories = [
             os.path.join(base_dir, "tmp"),
-            os.path.join(base_dir, "resumes")
+            os.path.join(base_dir, "data", "resumes")
         ]
         
         filepath = None
@@ -581,10 +597,10 @@ Return ONLY valid JSON (no markdown, no code blocks):
 
 def save_to_dataset(repos_data: List[Dict[str, Any]], username: str):
     """
-    Saves extracted repository information into a JSONL file in Git_details/{username}/
+    Saves extracted repository information into a JSONL file in data/Git_details/{username}/
     Also generates a fine-tuning dataset in 'alpaca' format for the 'energetic friend' persona.
     """
-    base_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "Git_details", username)
+    base_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "Git_details", username)
     if not os.path.exists(base_dir):
         os.makedirs(base_dir)
         
@@ -917,7 +933,7 @@ async def trigger_fine_tuning(current_user: User = Depends(get_current_user), ba
     """
     try:
         # Check if data exists
-        data_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "Git_details", current_user.username, "fine_tune_data.jsonl")
+        data_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "Git_details", current_user.username, "fine_tune_data.jsonl")
         if not os.path.exists(data_path):
             raise HTTPException(status_code=400, detail="No training data found. Please analyze your GitHub profile first.")
 
@@ -952,34 +968,9 @@ def get_gpu_status():
     except ImportError:
         return {"error": "PyTorch not installed"}
 
-from fastapi.staticfiles import StaticFiles
-
-# Mount static files
-app.mount("/static", StaticFiles(directory="static"), name="static")
-
-@app.get("/", response_class=HTMLResponse)
-async def read_root():
-    return FileResponse("template/login.html")
-
-@app.get("/register", response_class=HTMLResponse)
-async def read_register():
-    return FileResponse("template/register.html")
-
-@app.get("/dashboard", response_class=HTMLResponse)
-async def read_dashboard():
-    return FileResponse("template/dashboard.html")
-
-@app.get("/settings", response_class=HTMLResponse)
-async def read_settings():
-    return FileResponse("template/settings.html")
-
-@app.get("/resumes.html", response_class=HTMLResponse)
-async def read_resumes():
-    return FileResponse("template/resumes.html")
-
-@app.get("/test-auth", response_class=HTMLResponse)
-async def test_auth_page():
-    return FileResponse("template/test_auth.html")
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "service": "Code2Resume API"}
 
 if __name__ == "__main__":
     import uvicorn

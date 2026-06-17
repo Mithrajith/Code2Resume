@@ -18,7 +18,7 @@ def fine_tune_model(username: str):
     load_in_4bit = True 
 
     # Data Path
-    data_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), "Git_details", username, "fine_tune_data.jsonl")
+    data_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "Git_details", username, "fine_tune_data.jsonl")
     
     if not os.path.exists(data_file):
         return {"status": "error", "message": "No training data found. Please analyze repos first."}
