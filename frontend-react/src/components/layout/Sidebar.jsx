@@ -29,8 +29,8 @@ const navItems = [
   { path: '/ats', label: 'ATS Analyzer', icon: CheckCircle },
   { path: '/jobs', label: 'Job Matcher', icon: Target },
   { path: '/job-descriptions', label: 'Job Descriptions', icon: Briefcase },
-  { path: '/skills', label: 'Skill Gap Analysis', icon: BarChart3 },
-  { path: '/interview', label: 'Interview Prep', icon: MessageSquare },
+  // { path: '/skills', label: 'Skill Gap Analysis', icon: BarChart3 },
+  // { path: '/interview', label: 'Interview Prep', icon: MessageSquare },
   { path: '/analytics', label: 'Analytics', icon: LineChart },
   { path: '/settings', label: 'Settings', icon: Settings },
 ];
