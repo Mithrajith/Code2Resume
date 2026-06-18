@@ -6,6 +6,9 @@ const gradients = {
   professional: 'from-gray-700 to-gray-900',
   startup: 'from-emerald-500 to-teal-600',
   minimal: 'from-gray-300 to-gray-400 dark:from-gray-600 dark:to-gray-700',
+  creative: 'from-fuchsia-500 to-purple-600',
+  executive: 'from-slate-700 to-slate-900',
+  technical: 'from-cyan-500 to-blue-600',
 };
 
 const layouts = {
@@ -68,6 +71,50 @@ const layouts = {
       <div className="space-y-1">
         <div className="h-1 w-full bg-white/20 rounded" />
         <div className="h-1 w-5/6 bg-white/15 rounded" />
+      </div>
+    </div>
+  ),
+  creative: (
+    <div className="w-full h-full flex">
+      <div className="w-1/3 bg-white/20 p-2 space-y-1">
+        <div className="h-2 w-full bg-white/40 rounded" />
+        <div className="h-1 w-4/5 bg-white/30 rounded" />
+        <div className="h-1 w-3/5 bg-white/20 rounded" />
+      </div>
+      <div className="flex-1 p-2 space-y-1">
+        <div className="h-1 w-2/3 bg-white/30 rounded" />
+        <div className="h-1 w-full bg-white/20 rounded" />
+        <div className="h-1 w-4/5 bg-white/20 rounded" />
+      </div>
+    </div>
+  ),
+  executive: (
+    <div className="w-full h-full p-3 space-y-2">
+      <div className="h-4 w-3/5 bg-white/40 rounded" />
+      <div className="h-1 w-1/2 bg-white/20 rounded" />
+      <div className="h-px bg-white/30 my-1" />
+      <div className="space-y-1">
+        <div className="h-1 w-full bg-white/30 rounded" />
+        <div className="h-1 w-5/6 bg-white/20 rounded" />
+      </div>
+      <div className="space-y-1">
+        <div className="h-1 w-2/3 bg-white/30 rounded" />
+        <div className="h-1 w-full bg-white/20 rounded" />
+      </div>
+    </div>
+  ),
+  technical: (
+    <div className="w-full h-full p-3 space-y-2">
+      <div className="h-2 w-2/5 bg-white/40 rounded font-mono" />
+      <div className="h-px w-full bg-cyan-400/40 my-1" />
+      <div className="space-y-1 font-mono">
+        <div className="h-1 w-1/3 bg-cyan-300/40 rounded" />
+        <div className="h-1 w-full bg-white/20 rounded" />
+        <div className="h-1 w-4/5 bg-white/15 rounded" />
+      </div>
+      <div className="space-y-1 font-mono">
+        <div className="h-1 w-1/4 bg-cyan-300/40 rounded" />
+        <div className="h-1 w-5/6 bg-white/20 rounded" />
       </div>
     </div>
   ),

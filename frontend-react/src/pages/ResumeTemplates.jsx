@@ -12,22 +12,37 @@ const TEMPLATES = [
   {
     id: 'modern',
     name: 'Modern',
-    description: 'Clean two-column layout with a sidebar for skills and a bold header.',
+    description: 'Clean layout with indigo accents, centered header, and organized sections.',
   },
   {
     id: 'professional',
     name: 'Professional',
-    description: 'Traditional single-column format ideal for corporate and formal roles.',
+    description: 'Dark header banner with traditional single-column layout for corporate roles.',
   },
   {
     id: 'startup',
     name: 'Startup',
-    description: 'Creative card-based layout with visual elements for tech roles.',
+    description: 'Creative card-based layout with emerald accents and avatar for tech roles.',
   },
   {
     id: 'minimal',
     name: 'Minimal',
     description: 'Stripped-back design focused purely on content with elegant typography.',
+  },
+  {
+    id: 'creative',
+    name: 'Creative',
+    description: 'Bold two-column layout with fuchsia gradient sidebar for creative professionals.',
+  },
+  {
+    id: 'executive',
+    name: 'Executive',
+    description: 'Formal dark header with structured sections for senior leadership roles.',
+  },
+  {
+    id: 'technical',
+    name: 'Technical',
+    description: 'Monospace accents with cyan highlights, code-comment style section headers.',
   },
 ];
 

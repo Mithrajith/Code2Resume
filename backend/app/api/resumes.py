@@ -34,6 +34,88 @@ def extract_text_from_pdf(file_bytes: bytes) -> str | None:
         raise Exception(f"PDF parsing failed: {str(e)}")
 
 
+def llm_parse_resume_text(text: str) -> dict | None:
+    try:
+        import ollama as ollama_sync
+        from app.core.config import settings
+
+        prompt = f"""You are an expert resume parser. Convert the following resume text into a structured JSON object.
+
+Resume Text:
+{text[:8000]}
+
+Return ONLY a valid JSON object with this exact structure (no markdown, no explanation):
+{{
+  "name": "Full Name",
+  "email": "email@example.com",
+  "phone": "phone number",
+  "location": "city, state",
+  "linkedin": "linkedin URL or empty string",
+  "website": "website URL or empty string",
+  "summary": "professional summary text",
+  "skills": [{{"name": "Skill Name", "proficiency": "intermediate", "category": "language|framework|database|tool|other"}}],
+  "experience": [{{"company": "Company Name", "position": "Job Title", "startDate": "YYYY-MM", "endDate": "YYYY-MM or Present", "description": "job description", "highlights": ["highlight 1", "highlight 2"]}}],
+  "education": [{{"institution": "School Name", "degree": "Degree", "field": "Field of Study", "startDate": "YYYY-MM", "endDate": "YYYY-MM", "gpa": "GPA or empty string"}}],
+  "certifications": [{{"name": "Cert Name", "issuer": "Issuer"}}],
+  "projects": [{{"name": "Project Name", "description": "project description", "technologies": ["tech1", "tech2"], "link": "URL or empty string"}}]
+}}
+
+Rules:
+- Extract ALL information you can find
+- Use empty string "" for missing fields
+- Use null only for missing array items (return empty array [])
+- Dates should be YYYY-MM format when possible
+- Categories: language (Python, Java, etc), framework (React, Django, etc), database (MySQL, MongoDB, etc), tool (Docker, AWS, etc)
+- Return ONLY the JSON, nothing else"""
+
+        try:
+            model = settings.DEFAULT_MODEL
+            response = ollama_sync.chat(
+                model=model,
+                messages=[{"role": "user", "content": prompt}],
+                options={"num_gpu": 99, "temperature": 0.1}
+            )
+            content = response["message"]["content"]
+
+            content = content.strip()
+            if content.startswith("```json"):
+                content = content[7:]
+            elif content.startswith("```"):
+                content = content[3:]
+            if content.endswith("```"):
+                content = content[:-3]
+            content = content.strip()
+
+            import json as json_mod
+            parsed = json_mod.loads(content)
+
+            return {
+                "title": f"{parsed.get('name', '')} Resume" if parsed.get('name') else "Uploaded Resume",
+                "template": "modern",
+                "summary": parsed.get("summary", ""),
+                "target_role": "",
+                "personal": {
+                    "name": parsed.get("name", ""),
+                    "email": parsed.get("email", ""),
+                    "phone": parsed.get("phone", ""),
+                    "location": parsed.get("location", ""),
+                    "website": parsed.get("website", ""),
+                    "linkedin": parsed.get("linkedin", ""),
+                },
+                "experience": parsed.get("experience", []),
+                "education": parsed.get("education", []),
+                "skills": parsed.get("skills", []),
+                "certifications": parsed.get("certifications", []),
+                "projects": parsed.get("projects", []),
+            }
+        except Exception as e:
+            print(f"LLM parsing failed, falling back to regex: {e}")
+            return None
+    except ImportError:
+        print("ollama not installed, falling back to regex parsing")
+        return None
+
+
 def extract_text_from_docx(file_bytes: bytes) -> str | None:
     try:
         from docx import Document
@@ -509,21 +591,39 @@ async def import_resume(
                 raise HTTPException(status_code=400, detail="Failed to parse PDF. Ensure the file is a valid PDF and PyMuPDF is installed.")
             if not text.strip():
                 raise HTTPException(status_code=400, detail="PDF appears to be empty or contains only images.")
-            data = parse_resume_text(text)
+            print(f"Attempting LLM-assisted parsing for PDF ({len(text)} chars)...")
+            data = llm_parse_resume_text(text)
+            if data:
+                print("LLM parsing succeeded")
+            else:
+                print("LLM parsing failed or unavailable, falling back to regex")
+                data = parse_resume_text(text)
         elif filename.endswith(".docx"):
             text = extract_text_from_docx(raw)
             if text is None:
                 raise HTTPException(status_code=400, detail="Failed to parse DOCX. Ensure python-docx is installed.")
             if not text.strip():
                 raise HTTPException(status_code=400, detail="DOCX file appears to be empty.")
-            data = parse_resume_text(text)
+            print(f"Attempting LLM-assisted parsing for DOCX ({len(text)} chars)...")
+            data = llm_parse_resume_text(text)
+            if data:
+                print("LLM parsing succeeded")
+            else:
+                print("LLM parsing failed or unavailable, falling back to regex")
+                data = parse_resume_text(text)
         elif filename.endswith(".tex") or filename.endswith(".latex"):
             try:
                 content = raw.decode("utf-8")
             except UnicodeDecodeError:
                 raise HTTPException(status_code=400, detail="Failed to decode TeX file")
             text = extract_text_from_tex(content)
-            data = parse_resume_text(text)
+            print(f"Attempting LLM-assisted parsing for TeX ({len(text)} chars)...")
+            data = llm_parse_resume_text(text)
+            if data:
+                print("LLM parsing succeeded")
+            else:
+                print("LLM parsing failed or unavailable, falling back to regex")
+                data = parse_resume_text(text)
         else:
             raise HTTPException(status_code=400, detail="Supported formats: JSON, PDF, DOCX, TeX")
     except HTTPException:
@@ -621,3 +721,77 @@ async def import_resume(
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Failed to save imported resume: {str(e)}")
+
+
+from pydantic import BaseModel
+
+
+class AIEnhanceRequest(BaseModel):
+    text: str
+    context: str = "summary"
+    skills: list[str] = []
+    project_name: str = ""
+    project_tech: str = ""
+
+
+@router.post("/ai-enhance")
+async def ai_enhance_text(
+    request: AIEnhanceRequest,
+    current_user_id: uuid.UUID = Depends(get_current_user),
+):
+    try:
+        import ollama as ollama_sync
+        from app.core.config import settings
+
+        if request.context == "summary":
+            skills_str = ", ".join(request.skills) if request.skills else "various technologies"
+            prompt = f"""You are an expert resume writer. Enhance the following professional summary to be concise, impactful, and ATS-friendly.
+
+Current summary: {request.text or '(empty - write a new one)'}
+Skills: {skills_str}
+
+Rules:
+- 2-3 sentences maximum
+- Start with a strong action-oriented statement
+- Include key technical skills naturally
+- Use professional language
+- No bullet points, just flowing text
+- Do NOT use phrases like "I am" or "I have" - use第三人称 or implied subject
+- Return ONLY the enhanced summary text, nothing else"""
+
+        elif request.context == "project":
+            prompt = f"""You are an expert resume writer. Write a compelling 2-line project description for a resume.
+
+Project name: {request.project_name}
+Technologies: {request.project_tech}
+Current description: {request.text or '(empty)'}
+
+Rules:
+- Exactly 2 sentences
+- First sentence: what the project does and its impact
+- Second sentence: key technical details and achievements
+- Use action verbs (Built, Developed, Engineered, Implemented, Designed)
+- Include quantifiable results where possible
+- Professional tone, no filler words
+- Return ONLY the description text, nothing else"""
+
+        else:
+            return {"enhanced_text": request.text}
+
+        model = settings.DEFAULT_MODEL
+        response = ollama_sync.chat(
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            options={"num_gpu": 99, "temperature": 0.7}
+        )
+        enhanced = response["message"]["content"].strip()
+
+        enhanced = enhanced.strip('"').strip("'")
+        if enhanced.startswith("```"):
+            enhanced = enhanced.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+
+        return {"enhanced_text": enhanced}
+    except ImportError:
+        raise HTTPException(status_code=500, detail="Ollama not installed. AI enhancement unavailable.")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"AI enhancement failed: {str(e)}")

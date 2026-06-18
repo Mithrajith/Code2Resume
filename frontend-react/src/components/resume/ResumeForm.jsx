@@ -1,6 +1,8 @@
-import { User, FileText, Code2, Briefcase, GraduationCap, Award, FolderOpen, Plus, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
+import { useState } from 'react';
+import { User, FileText, Code2, Briefcase, GraduationCap, Award, FolderOpen, Plus, Trash2, ChevronUp, ChevronDown, Sparkles, Loader2 } from 'lucide-react';
 import SectionEditor from './SectionEditor';
 import Button from '../ui/Button';
+import v2 from '../../api/v2';
 
 const inputClass = "w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent";
 const textareaClass = `${inputClass} resize-none`;
@@ -20,6 +22,9 @@ const SECTION_CONFIG = {
 const DEFAULT_ORDER = ['personal', 'summary', 'skills', 'experience', 'education', 'certifications', 'projects'];
 
 export default function ResumeForm({ data, onChange, sectionOrder, onReorder, className = '' }) {
+  const [enhancingSummary, setEnhancingSummary] = useState(false);
+  const [enhancingProject, setEnhancingProject] = useState(null);
+
   const updateField = (section, field, value, index) => {
     const updated = { ...data };
     if (index !== undefined) {
@@ -62,6 +67,47 @@ export default function ResumeForm({ data, onChange, sectionOrder, onReorder, cl
     onReorder(newOrder);
   };
 
+  const handleEnhanceSummary = async () => {
+    setEnhancingSummary(true);
+    try {
+      const skillNames = skills.map(s => s.name).filter(Boolean);
+      const res = await v2.resumes.aiEnhance({
+        text: summary,
+        context: 'summary',
+        skills: skillNames,
+      });
+      const enhanced = res.data?.enhanced_text || res.enhanced_text;
+      if (enhanced) {
+        onChange({ ...data, summary: enhanced });
+      }
+    } catch (err) {
+      console.error('AI enhancement failed:', err);
+    } finally {
+      setEnhancingSummary(false);
+    }
+  };
+
+  const handleAutoGenProject = async (index) => {
+    setEnhancingProject(index);
+    try {
+      const proj = projects[index];
+      const res = await v2.resumes.aiEnhance({
+        text: '',
+        context: 'project',
+        project_name: proj.name || 'Unnamed Project',
+        project_tech: proj.technologies || '',
+      });
+      const enhanced = res.data?.enhanced_text || res.enhanced_text;
+      if (enhanced) {
+        updateField('projects', 'description', enhanced, index);
+      }
+    } catch (err) {
+      console.error('Auto-generate failed:', err);
+    } finally {
+      setEnhancingProject(null);
+    }
+  };
+
   const renderSectionContent = (sectionKey) => {
     switch (sectionKey) {
       case 'personal':
@@ -85,8 +131,18 @@ export default function ResumeForm({ data, onChange, sectionOrder, onReorder, cl
               value={summary}
               onChange={e => onChange({ ...data, summary: e.target.value })}
             />
-            <Button variant="secondary" size="sm" className="w-full">
-              Enhance with AI
+            <Button
+              variant="secondary"
+              size="sm"
+              className="w-full"
+              onClick={handleEnhanceSummary}
+              disabled={enhancingSummary}
+            >
+              {enhancingSummary ? (
+                <><Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> Enhancing...</>
+              ) : (
+                <><Sparkles className="w-3.5 h-3.5 mr-1.5" /> Enhance with AI</>
+              )}
             </Button>
           </>
         );
@@ -172,7 +228,17 @@ export default function ResumeForm({ data, onChange, sectionOrder, onReorder, cl
                 <input className={inputClass} placeholder="Project name" value={proj.name || ''} onChange={e => updateField('projects', 'name', e.target.value, i)} />
                 <input className={inputClass} placeholder="Technologies" value={proj.technologies || ''} onChange={e => updateField('projects', 'technologies', e.target.value, i)} />
               </div>
-              <textarea className={textareaClass} rows={2} placeholder="Description" value={proj.description || ''} onChange={e => updateField('projects', 'description', e.target.value, i)} />
+              <textarea className={textareaClass} rows={2} placeholder="Description (2 lines recommended)" value={proj.description || ''} onChange={e => updateField('projects', 'description', e.target.value, i)} />
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleAutoGenProject(i)}
+                  disabled={enhancingProject === i || !proj.name}
+                  className="flex items-center gap-1 text-xs px-2 py-1 rounded-md bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors disabled:opacity-50"
+                >
+                  {enhancingProject === i ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                  {proj.description ? 'Enhance' : 'Generate'}
+                </button>
+              </div>
               <input className={inputClass} placeholder="Link URL" value={proj.link || ''} onChange={e => updateField('projects', 'link', e.target.value, i)} />
             </div>
           ))

@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import v2 from '../api/v2';
 import { generateResume } from '../api/resume';
 import { useToastStore } from '../components/ui/Toast';
-import { FileText, Trash2, Loader2, Plus, Edit3, Download, Upload } from 'lucide-react';
+import { FileText, Trash2, Loader2, Plus, Edit3, Download, Upload, Eye, X } from 'lucide-react';
 import Modal from '../components/ui/Modal';
 import Button from '../components/ui/Button';
+import ResumePreview from '../components/resume/ResumePreview';
 
 export default function Resumes() {
   const navigate = useNavigate();
@@ -19,6 +20,9 @@ export default function Resumes() {
   const [uploading, setUploading] = useState(false);
   const [showGenerateModal, setShowGenerateModal] = useState(false);
   const [generateQuery, setGenerateQuery] = useState('');
+  const [previewResume, setPreviewResume] = useState(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewTemplate, setPreviewTemplate] = useState('modern');
 
   const loadResumes = useCallback(async () => {
     try {
@@ -101,6 +105,29 @@ export default function Resumes() {
 
   const handleViewEdit = (resume) => {
     navigate(`/builder?resumeId=${resume.id}`);
+  };
+
+  const handlePreview = async (resume) => {
+    setPreviewLoading(true);
+    try {
+      const res = await v2.resumes.get(resume.id);
+      const data = res.data || res;
+      const content = data.content || {};
+      setPreviewResume({
+        personal: content.personal || {},
+        summary: data.summary || '',
+        skills: data.skills || [],
+        experience: data.experiences || [],
+        education: data.educations || [],
+        certifications: data.certifications || [],
+        projects: data.projects || [],
+      });
+      setPreviewTemplate(data.template || 'modern');
+    } catch {
+      addToast({ type: 'error', message: 'Failed to load resume preview' });
+    } finally {
+      setPreviewLoading(false);
+    }
   };
 
   const handleGenerate = async () => {
@@ -198,6 +225,14 @@ export default function Resumes() {
                   Edit
                 </button>
                 <button
+                  onClick={() => handlePreview(resume)}
+                  disabled={previewLoading}
+                  className="flex items-center justify-center px-3 py-2 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 text-sm font-medium rounded-lg hover:bg-purple-200 dark:hover:bg-purple-900/50 transition-colors"
+                  title="Display resume"
+                >
+                  <Eye size={14} />
+                </button>
+                <button
                   onClick={() => handleDownload(resume)}
                   disabled={downloading === resume.id}
                   className="flex items-center justify-center px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
@@ -247,6 +282,30 @@ export default function Resumes() {
                 'Generate'
               )}
             </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal isOpen={!!previewResume} onClose={() => setPreviewResume(null)} title="Resume Preview" size="lg">
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-gray-500 dark:text-gray-400">Template:</span>
+            <select
+              value={previewTemplate}
+              onChange={(e) => setPreviewTemplate(e.target.value)}
+              className="px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+              <option value="modern">Modern</option>
+              <option value="professional">Professional</option>
+              <option value="startup">Startup</option>
+              <option value="minimal">Minimal</option>
+              <option value="creative">Creative</option>
+              <option value="executive">Executive</option>
+              <option value="technical">Technical</option>
+            </select>
+          </div>
+          <div className="max-h-[60vh] overflow-y-auto rounded-xl border border-gray-100 dark:border-gray-700">
+            <ResumePreview data={previewResume} template={previewTemplate} />
           </div>
         </div>
       </Modal>

@@ -267,7 +267,7 @@ async def get_user_repos(current_user: User = Depends(get_current_user)):
 async def generate_resume_file(request: ResumeRequest, current_user: User = Depends(get_current_user)):
     """
     Generates a LaTeX resume file and saves it to resumes/ directory
-    Returns the filename for download
+    Returns the filename for download and structured resume data
     """
     try:
         # Generate resume content using agent service
@@ -295,11 +295,24 @@ async def generate_resume_file(request: ResumeRequest, current_user: User = Depe
             f.write(latex_content)
         
         print(f"Resume saved: {filepath}")
-        
+
+        # Extract structured resume data from LaTeX for frontend display/save
+        resume_data = None
+        try:
+            import sys
+            sys.path.insert(0, os.path.join(os.path.dirname(__file__), "backend"))
+            from app.api.resumes import llm_parse_resume_text, parse_resume_text
+            resume_data = llm_parse_resume_text(latex_content)
+            if not resume_data:
+                resume_data = parse_resume_text(latex_content)
+        except Exception as e:
+            print(f"Could not extract structured resume data: {e}")
+
         return {
             "success": True,
             "filename": filename,
-            "message": "Resume generated successfully! Click below to download."
+            "message": "Resume generated successfully! Click below to download.",
+            "resume_data": resume_data,
         }
     except Exception as e:
         import traceback

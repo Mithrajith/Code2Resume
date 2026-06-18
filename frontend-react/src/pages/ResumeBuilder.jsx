@@ -269,6 +269,9 @@ export default function ResumeBuilder() {
               <option value="professional">Professional</option>
               <option value="startup">Startup</option>
               <option value="minimal">Minimal</option>
+              <option value="creative">Creative</option>
+              <option value="executive">Executive</option>
+              <option value="technical">Technical</option>
             </select>
             <Button variant="primary" size="sm" onClick={handleExport} className="hidden lg:inline-flex">
               <Download className="w-4 h-4" />

@@ -25,6 +25,7 @@ const v2 = {
     addSkill: (resumeId, data) => api.post(`/api/v2/resumes/${resumeId}/skills`, data),
     addCertification: (resumeId, data) => api.post(`/api/v2/resumes/${resumeId}/certifications`, data),
     addProject: (resumeId, data) => api.post(`/api/v2/resumes/${resumeId}/projects`, data),
+    aiEnhance: (data) => api.post('/api/v2/resumes/ai-enhance', data),
   },
 
   jobs: {
